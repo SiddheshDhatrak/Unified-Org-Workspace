@@ -23,12 +23,12 @@ export class IdentityController {
       maxAge: 15 * 60 * 1000, // 15m
     });
 
-    // Refresh Token HttpOnly cookie (§4.9: SameSite=Strict for refresh token)
+    // Refresh Token HttpOnly cookie (§4.9: SameSite=Strict in prod, Lax in local dev for cross-port requests)
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: isProd,
       domain: isProd ? env.COOKIE_DOMAIN : undefined,
-      sameSite: 'strict',
+      sameSite: isProd ? 'strict' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
     });
 

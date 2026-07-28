@@ -168,4 +168,27 @@ export class OrganizationService {
 
     return updated;
   }
+
+  async removeMember(orgId: string, membershipId: string, actorId: string, ip?: string, sessionId?: string) {
+    const membership = await this.repo.findMembershipById(orgId, membershipId);
+    if (!membership) {
+      throw new NotFoundError('Membership not found in organization');
+    }
+
+    const removed = await this.repo.deleteMembership(membership.id);
+
+    await AuditFacade.record({
+      orgId,
+      actorId,
+      action: AUDIT_ACTIONS.MEMBERSHIP_REMOVED,
+      resourceType: 'MEMBERSHIP',
+      resourceId: membership.id,
+      beforeValue: { userId: membership.userId, role: membership.orgRole },
+      afterValue: null,
+      ip,
+      sessionId,
+    });
+
+    return removed;
+  }
 }

@@ -248,6 +248,13 @@ export class PRService {
     return this.repo.listVersions(orgId, prId);
   }
 
+  async getVersion(orgId: string, prId: string, versionNumber: number) {
+    await this.getById(orgId, prId);
+    const ver = await this.repo.getVersion(prId, versionNumber);
+    if (!ver) throw new NotFoundError('PR version not found');
+    return ver;
+  }
+
   async getDiff(orgId: string, prId: string, versionNumber: number) {
     await this.getById(orgId, prId);
     const ver = await this.repo.getVersion(prId, versionNumber);

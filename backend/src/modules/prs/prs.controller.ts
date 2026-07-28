@@ -95,6 +95,15 @@ export class PRController {
     }
   };
 
+  getVersion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const version = await this.service.getVersion(req.orgContext!.orgId!, req.params.id, parseInt(req.params.n, 10));
+      res.status(200).json({ data: version });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getDiff = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const diff = await this.service.getDiff(req.orgContext!.orgId!, req.params.id, parseInt(req.params.n, 10));
@@ -106,7 +115,8 @@ export class PRController {
 
   restore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const restored = await this.service.rollbackVersion(req.orgContext!.orgId!, req.params.id, parseInt(req.params.n, 10), req.user!.id, req.ip, req.session?.id);
+      const verNum = parseInt(req.params.n || req.body.versionNumber, 10);
+      const restored = await this.service.rollbackVersion(req.orgContext!.orgId!, req.params.id, verNum, req.user!.id, req.ip, req.session?.id);
       res.status(200).json({ data: restored });
     } catch (error) {
       next(error);

@@ -23,8 +23,10 @@ router.post('/:id/merge', rbac('pr:create'), controller.merge);
 
 // Versioning (§12.5)
 router.get('/:id/versions', controller.listVersions);
+router.get('/:id/versions/:n', controller.getVersion);
 router.get('/:id/versions/:n/diff', controller.getDiff);
 router.post('/:id/versions/:n/restore', rbac('pr:create'), controller.restore);
+router.post('/:id/rollback', rbac('pr:create'), controller.restore);
 
 // Comments
 router.post('/:id/comments', rbac('pr:comment'), controller.addComment);

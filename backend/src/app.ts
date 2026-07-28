@@ -54,14 +54,14 @@ app.get('/health', (req: Request, res: Response) => {
 // API v1 Mounts (§5.2)
 const v1Router = express.Router();
 v1Router.use('/auth', identityRoutes);
-v1Router.use('/orgs', organizationRoutes);
+v1Router.use(['/orgs', '/organizations'], organizationRoutes, featureFlagRoutes);
 v1Router.use('/flags', featureFlagRoutes);
 v1Router.use('/tickets', ticketRoutes);
 v1Router.use('/prs', prRoutes);
 v1Router.use('/org-connections', crossOrgRoutes);
 v1Router.use('/audit', auditRoutes);
 v1Router.use('/notifications', notificationRoutes);
-v1Router.use('/digest', aiDigestRoutes);
+v1Router.use(['/digest', '/digests'], aiDigestRoutes);
 
 app.use('/api/v1', v1Router);
 

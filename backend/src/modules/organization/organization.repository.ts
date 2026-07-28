@@ -52,7 +52,7 @@ export class OrganizationRepository {
 
   async findMembershipById(orgId: string, membershipId: string): Promise<Membership | null> {
     return this.db.membership.findFirst({
-      where: { id: membershipId, orgId },
+      where: { orgId, OR: [{ id: membershipId }, { userId: membershipId }] },
     });
   }
 
@@ -60,6 +60,12 @@ export class OrganizationRepository {
     return this.db.membership.update({
       where: { id: membershipId },
       data,
+    });
+  }
+
+  async deleteMembership(membershipId: string): Promise<Membership> {
+    return this.db.membership.delete({
+      where: { id: membershipId },
     });
   }
 }

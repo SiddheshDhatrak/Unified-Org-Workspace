@@ -19,6 +19,8 @@ router.delete('/:id', rbac('org:manage'), controller.delete);
 // Member management
 router.get('/:id/members', rbac('org:manage'), controller.listMembers);
 router.post('/:id/invitations', rbac('org:manage'), controller.invite);
+router.post('/:id/members/invite', rbac('org:manage'), controller.invite);
 router.patch('/:id/members/:membershipId', rbac('org:manage'), controller.updateMember);
+router.delete('/:id/members/:membershipId', rbac('org:manage'), controller.removeMember);
 
 export default router;

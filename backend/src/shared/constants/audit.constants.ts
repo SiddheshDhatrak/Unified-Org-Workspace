@@ -23,6 +23,7 @@ export const AUDIT_ACTIONS = {
   INVITATION_ACCEPTED: 'invitation.accepted',
   MEMBERSHIP_ROLE_CHANGED: 'membership.role_changed',
   MEMBERSHIP_STATUS_CHANGED: 'membership.status_changed',
+  MEMBERSHIP_REMOVED: 'membership.removed',
 
   // Feature Flags
   FLAG_TOGGLED: 'flag.toggled',

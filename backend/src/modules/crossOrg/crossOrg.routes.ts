@@ -14,5 +14,6 @@ router.get('/', rbac('crossorg:connect'), controller.list);
 router.post('/:id/approve', rbac('crossorg:connect'), controller.approve);
 router.post('/:id/reject', rbac('crossorg:connect'), controller.reject);
 router.post('/:id/revoke', rbac('crossorg:connect'), controller.revoke);
+router.delete('/:id', rbac('crossorg:connect'), controller.revoke);
 
 export default router;

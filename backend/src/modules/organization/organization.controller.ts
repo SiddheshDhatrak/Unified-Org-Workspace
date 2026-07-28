@@ -97,4 +97,19 @@ export class OrganizationController {
       next(error);
     }
   };
+
+  removeMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const removed = await this.service.removeMember(
+        req.params.id,
+        req.params.membershipId,
+        req.user!.id,
+        req.ip,
+        req.session?.id
+      );
+      res.status(200).json({ data: removed });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
