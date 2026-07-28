@@ -16,7 +16,7 @@ import { usePathname } from 'next/navigation';
 import { auth } from '@workspace/api-client';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { data: session, isLoading } = useSession();
+  const { data: session, isLoading, error } = useSession();
   const { isGuestView, orgRole } = useOrgContext();
   const pathname = usePathname();
 
@@ -28,6 +28,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center text-zinc-400 gap-3">
         <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-xs font-semibold tracking-wider uppercase animate-pulse">Hydrating Review Console session...</p>
+      </div>
+    );
+  }
+
+  if (error || !session) {
+    return (
+      <div className="min-h-screen w-full bg-[#090D16] flex flex-col items-center justify-center text-zinc-400 gap-4 p-6">
+        <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+          <svg className="w-7 h-7 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
+        </div>
+        <h2 className="text-lg font-bold text-white">Unable to connect</h2>
+        <p className="text-sm text-zinc-500 text-center max-w-sm">
+          Could not reach the backend API. Make sure the server is running on <code className="text-indigo-400">localhost:4000</code>.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-2 px-5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 text-sm font-bold transition-all"
+        >
+          Retry
+        </button>
       </div>
     );
   }

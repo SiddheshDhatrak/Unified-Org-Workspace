@@ -34,7 +34,7 @@ export function useSession() {
       }
       return data;
     },
-    refetchOnWindowFocus: true, (§9.5)
+    refetchOnWindowFocus: true, // §9.5
     retry: false,
     staleTime: 60 * 1000,
   });

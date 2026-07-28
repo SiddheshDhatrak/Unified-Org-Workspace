@@ -222,12 +222,15 @@ export const connections = {
 export const auditFeed = {
   list: (orgId: string, params?: Record<string, any>) =>
     request<PaginatedResponse<AuditEvent>>('/audit', { orgId, params }),
+  exportCsv: (orgId: string, params?: Record<string, any>) =>
+    request<Record<string, any>>('/audit/export', { orgId, params }),
   exportCsvUrl: (orgId: string, params?: Record<string, any>) => {
     const searchParams = new URLSearchParams(params || {});
     searchParams.append('orgId', orgId);
     return `${API_BASE_URL}/api/v1/audit/export?${searchParams.toString()}`;
   },
 };
+export const audit = auditFeed;
 
 export const notificationsFeed = {
   list: (orgId: string, params?: Record<string, any>) =>
