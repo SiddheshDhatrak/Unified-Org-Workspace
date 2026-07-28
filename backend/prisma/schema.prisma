@@ -1,0 +1,447 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums as native Postgres enums (§9.7)
+enum OrgRole {
+  PLATFORM_SUPER_ADMIN
+  ORG_ADMIN
+  SUPPORT_AGENT
+  REVIEWER_APPROVER
+  CROSS_ORG_GUEST
+}
+
+enum OrgStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PRStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+enum ReviewDecision {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+enum ConnectionStatus {
+  PENDING
+  APPROVED
+  REVOKED
+  REJECTED
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  DEACTIVATED
+}
+
+// Models (§9.1 & §9.2)
+
+model User {
+  id                   String       @id @default(uuid())
+  email                String       @unique
+  passwordHash         String
+  fullName             String
+  avatarUrl            String?
+  status               UserStatus   @default(PENDING_VERIFICATION)
+  emailVerifiedAt      DateTime?
+  preferences          Json         @default("{}")
+  isPlatformSuperAdmin Boolean      @default(false)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  deletedAt            DateTime?
+
+  memberships          Membership[]
+  sessions             Session[]
+  authoredTickets      Ticket[]       @relation("TicketCreator")
+  assignedTickets      Ticket[]       @relation("TicketAssignee")
+  ticketComments       TicketComment[]
+  attachments          Attachment[]
+  authoredPRs          PullRequest[]  @relation("PRAuthor")
+  prReviewers          PRReviewer[]
+  prVersions           PRVersion[]    @relation("PRVersionCreator")
+  prComments           PRComment[]
+  sharedTickets        TicketShare[]  @relation("TicketSharer")
+  sharedPRs            PRShare[]      @relation("PRSharer")
+  notifications        Notification[]
+  digests              Digest[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model Organization {
+  id                     String          @id @default(uuid())
+  name                   String
+  slug                   String          @unique
+  status                 OrgStatus       @default(ACTIVE)
+  ownerId                String
+  settings               Json            @default("{}")
+  planTier               String          @default("free")
+  createdAt              DateTime        @default(now())
+  archivedAt             DateTime?
+  deletedAt              DateTime?
+
+  memberships            Membership[]
+  tickets                Ticket[]
+  pullRequests           PullRequest[]
+  featureFlags           FeatureFlag[]
+  invitations            Invitation[]
+  ticketSharesReceived   TicketShare[]   @relation("SharedWithOrgTickets")
+  prSharesReceived       PRShare[]       @relation("SharedWithOrgPRs")
+  connectionsRequested   OrgConnection[] @relation("RequestingOrg")
+  connectionsPartner     OrgConnection[] @relation("PartnerOrg")
+  digests                Digest[]
+
+  @@index([status])
+  @@index([slug])
+}
+
+model Membership {
+  id           String           @id @default(uuid())
+  userId       String
+  orgId        String
+  orgRole      OrgRole
+  appRoles     Json             @default("{}")
+  status       MembershipStatus @default(ACTIVE)
+  invitedBy    String?
+  joinedAt     DateTime         @default(now())
+  lastActiveAt DateTime         @default(now())
+  suspendedAt  DateTime?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId, status])
+  @@index([userId])
+}
+
+model Session {
+  id           String         @id @default(uuid())
+  userId       String
+  deviceInfo   String?
+  ip           String?
+  revokedAt    DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime       @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  sessionId   String
+  tokenHash   String    @unique
+  rotatedFrom String?
+  revokedAt   DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  session     Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([tokenHash])
+}
+
+model Invitation {
+  id         String    @id @default(uuid())
+  orgId      String
+  email      String
+  role       OrgRole
+  appRoles   Json      @default("{}")
+  token      String    @unique
+  invitedBy  String
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, email])
+  @@index([token])
+}
+
+model Ticket {
+  id           String         @id @default(uuid())
+  orgId        String
+  createdById  String
+  assignedToId String?
+  title        String
+  description  String
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  version      Int            @default(1)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  org          Organization   @relation(fields: [orgId], references: [id])
+  createdBy    User           @relation("TicketCreator", fields: [createdById], references: [id])
+  assignedTo   User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  comments     TicketComment[]
+  attachments  Attachment[]
+  shares       TicketShare[]
+
+  @@index([orgId, status])
+  @@index([orgId, assignedToId])
+  @@index([orgId, deletedAt])
+}
+
+model TicketComment {
+  id        String    @id @default(uuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model Attachment {
+  id            String   @id @default(uuid())
+  ticketId      String
+  uploadedById  String
+  storageKey    String
+  fileName      String
+  fileSizeBytes Int
+  createdAt     DateTime @default(now())
+
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([ticketId])
+}
+
+model TicketShare {
+  id              String        @id @default(uuid())
+  ticketId        String
+  sharedWithOrgId String
+  orgConnectionId String
+  sharedById      String
+  createdAt       DateTime      @default(now())
+  revokedAt       DateTime?
+  expiresAt       DateTime?
+
+  ticket          Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sharedWithOrg   Organization  @relation("SharedWithOrgTickets", fields: [sharedWithOrgId], references: [id])
+  orgConnection   OrgConnection @relation(fields: [orgConnectionId], references: [id], onDelete: Cascade)
+  sharedBy        User          @relation("TicketSharer", fields: [sharedById], references: [id])
+
+  @@unique([ticketId, sharedWithOrgId])
+  @@index([sharedWithOrgId, revokedAt])
+}
+
+model PullRequest {
+  id                String       @id @default(uuid())
+  orgId             String
+  authorId          String
+  title             String
+  description       String
+  status            PRStatus     @default(DRAFT)
+  requiredApprovals Int          @default(1)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+
+  org               Organization @relation(fields: [orgId], references: [id])
+  author            User         @relation("PRAuthor", fields: [authorId], references: [id])
+  reviewers         PRReviewer[]
+  versions          PRVersion[]
+  comments          PRComment[]
+  shares            PRShare[]
+
+  @@index([orgId, status])
+  @@index([orgId, authorId])
+}
+
+model PRReviewer {
+  id         String         @id @default(uuid())
+  prId       String
+  reviewerId String
+  decision   ReviewDecision @default(PENDING)
+  decidedAt  DateTime?
+  createdAt  DateTime       @default(now())
+
+  pr         PullRequest    @relation(fields: [prId], references: [id], onDelete: Cascade)
+  reviewer   User           @relation(fields: [reviewerId], references: [id])
+
+  @@unique([prId, reviewerId])
+  @@index([prId])
+}
+
+model PRVersion {
+  id            String   @id @default(uuid())
+  prId          String
+  versionNumber Int
+  diff          Json
+  snapshot      Json
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  pr            PullRequest @relation(fields: [prId], references: [id], onDelete: Cascade)
+  createdBy     User        @relation("PRVersionCreator", fields: [createdById], references: [id])
+
+  @@unique([prId, versionNumber])
+  @@index([prId])
+}
+
+model PRComment {
+  id            String    @id @default(uuid())
+  prId          String
+  authorId      String
+  versionNumber Int
+  body          String
+  threadId      String?
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime?
+
+  pr            PullRequest @relation(fields: [prId], references: [id], onDelete: Cascade)
+  author        User        @relation(fields: [authorId], references: [id])
+
+  @@index([prId, versionNumber])
+}
+
+model PRShare {
+  id              String        @id @default(uuid())
+  prId            String
+  sharedWithOrgId String
+  orgConnectionId String
+  sharedById      String
+  createdAt       DateTime      @default(now())
+  revokedAt       DateTime?
+  expiresAt       DateTime?
+
+  pr              PullRequest   @relation(fields: [prId], references: [id], onDelete: Cascade)
+  sharedWithOrg   Organization  @relation("SharedWithOrgPRs", fields: [sharedWithOrgId], references: [id])
+  orgConnection   OrgConnection @relation(fields: [orgConnectionId], references: [id], onDelete: Cascade)
+  sharedBy        User          @relation("PRSharer", fields: [sharedById], references: [id])
+
+  @@unique([prId, sharedWithOrgId])
+  @@index([sharedWithOrgId, revokedAt])
+}
+
+model OrgConnection {
+  id              String           @id @default(uuid())
+  requestingOrgId String
+  partnerOrgId    String
+  status          ConnectionStatus @default(PENDING)
+  requestedById   String
+  respondedById   String?
+  createdAt       DateTime         @default(now())
+  respondedAt     DateTime?
+  revokedAt       DateTime?
+
+  requestingOrg   Organization     @relation("RequestingOrg", fields: [requestingOrgId], references: [id])
+  partnerOrg      Organization     @relation("PartnerOrg", fields: [partnerOrgId], references: [id])
+  ticketShares    TicketShare[]
+  prShares        PRShare[]
+
+  @@unique([requestingOrgId, partnerOrgId])
+  @@index([partnerOrgId, status])
+}
+
+// AuditEvent intentionally lacks foreign key relations to allow audit history to outlive entity deletions (§9.3)
+model AuditEvent {
+  id           String   @id @default(uuid())
+  orgId        String
+  actorId      String?
+  action       String
+  resourceType String
+  resourceId   String?
+  beforeValue  Json?
+  afterValue   Json?
+  ip           String?
+  sessionId    String?
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([orgId, resourceType, resourceId])
+  @@index([actorId])
+}
+
+model FeatureFlag {
+  id        String       @id @default(uuid())
+  orgId     String
+  key       String
+  enabled   Boolean      @default(false)
+  config    Json         @default("{}")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@index([orgId])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  type        String
+  payload     Json
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model Digest {
+  id          String    @id @default(uuid())
+  userId      String
+  orgId       String
+  content     Json
+  generatedAt DateTime  @default(now())
+  deliveredAt DateTime?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId, generatedAt])
+}
