@@ -170,7 +170,7 @@ export const tickets = {
   get: (orgId: string, ticketId: string) => request<Ticket>(`/tickets/${ticketId}`, { orgId }),
   create: (orgId: string, data: Partial<Ticket>) =>
     request<Ticket>('/tickets', { method: 'POST', orgId, body: JSON.stringify(data) }),
-  update: (orgId: string, ticketId: string, data: Partial<Ticket>) =>
+  update: (orgId: string, ticketId: string, data: Partial<Ticket> & { expectedVersion?: number }) =>
     request<Ticket>(`/tickets/${ticketId}`, { method: 'PATCH', orgId, body: JSON.stringify(data) }),
   assign: (orgId: string, ticketId: string, assignedToId: string | null, expectedVersion: number) =>
     request(`/tickets/${ticketId}/assign`, { method: 'PATCH', orgId, body: JSON.stringify({ assignedToId, expectedVersion }) }),
