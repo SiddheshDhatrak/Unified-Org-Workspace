@@ -18,7 +18,11 @@ const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   email: z.string().email('Please enter a valid work email'),
   password: z.string().min(10, 'Password must be at least 10 characters long'),
-  organizationName: z.string().min(2, 'Organization name is required'),
+  organizationName: z.string().optional(),
+  invitationToken: z.string().optional(),
+}).refine(data => data.organizationName || data.invitationToken, {
+  message: 'Either Organization Name or Invitation Token is required',
+  path: ['organizationName'],
 });
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
@@ -34,6 +38,7 @@ function LoginContent() {
   const from = searchParams?.get('from') || '/tickets';
   
   const [mode, setMode] = React.useState<'login' | 'register'>('login');
+  const [joinMode, setJoinMode] = React.useState<'create' | 'join'>('create');
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -77,7 +82,8 @@ function LoginContent() {
         email: data.email,
         password: data.password,
         fullName: data.fullName,
-        organizationName: data.organizationName,
+        organizationName: joinMode === 'create' ? data.organizationName : undefined,
+        invitationToken: joinMode === 'join' ? data.invitationToken : undefined,
       });
       window.location.href = '/tickets';
     } catch (err: any) {
@@ -212,7 +218,29 @@ function LoginContent() {
             <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3.5">
               <Input label="Full Name" placeholder="Alice Acme" {...registerForm.register('fullName')} error={registerForm.formState.errors.fullName?.message} />
               <Input label="Work Email" placeholder="alice@acme.com" {...registerForm.register('email')} error={registerForm.formState.errors.email?.message} />
-              <Input label="Organization Name" placeholder="Acme Corp" {...registerForm.register('organizationName')} error={registerForm.formState.errors.organizationName?.message} />
+              
+              <div className="flex bg-[var(--surface-hover)] rounded-lg p-1 border border-[var(--border)] mb-4">
+                <button
+                  type="button"
+                  className={cn('flex-1 text-xs font-semibold py-1.5 rounded-md transition-all', joinMode === 'create' ? 'bg-[var(--surface)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)]')}
+                  onClick={() => setJoinMode('create')}
+                >
+                  Create New
+                </button>
+                <button
+                  type="button"
+                  className={cn('flex-1 text-xs font-semibold py-1.5 rounded-md transition-all', joinMode === 'join' ? 'bg-[var(--surface)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)]')}
+                  onClick={() => setJoinMode('join')}
+                >
+                  Join Existing
+                </button>
+              </div>
+
+              {joinMode === 'create' ? (
+                <Input label="Organization Name" placeholder="Acme Corp" {...registerForm.register('organizationName')} error={registerForm.formState.errors.organizationName?.message} />
+              ) : (
+                <Input label="Invitation Token" placeholder="Paste your token here" {...registerForm.register('invitationToken')} error={registerForm.formState.errors.invitationToken?.message} />
+              )}
               
               <div className="space-y-1">
                 <Input label="Password" type="password" placeholder="Password123!" {...registerForm.register('password')} error={registerForm.formState.errors.password?.message} />
@@ -235,7 +263,7 @@ function LoginContent() {
               </div>
 
               <Button type="submit" variant="primary" size="lg" className="w-full mt-4 group" isLoading={isSubmitting}>
-                <span>Create Account & Org</span>
+                <span>{joinMode === 'create' ? 'Create Account & Org' : 'Join Workspace'}</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1 ml-1" />
               </Button>
             </form>
