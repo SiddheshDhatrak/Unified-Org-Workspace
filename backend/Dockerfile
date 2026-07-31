@@ -24,4 +24,4 @@ COPY --from=builder /app/prisma ./prisma
 
 USER nodeapp
 EXPOSE 4000
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]
