@@ -179,12 +179,10 @@ export default function PRsPage() {
           </div>
 
           {!isGuestView && (
-            <RoleGate permission="pr:create">
-              <Button size="sm" variant="primary" onClick={() => setIsCreateModalOpen(true)}>
-                <Plus className="w-4 h-4" />
-                New PR
-              </Button>
-            </RoleGate>
+            <Button size="sm" variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="w-4 h-4" />
+              New PR
+            </Button>
           )}
         </div>
       </div>

@@ -14,11 +14,7 @@ const loginSchema = z.object({
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-const QUICK_LOGINS = [
-  { label: 'Alice (Admin)', email: 'alice@acme.com' },
-  { label: 'Bob (Agent)', email: 'bob@acme.com' },
-  { label: 'Charlie (Globex)', email: 'charlie@globex.com' },
-];
+
 
 const FEATURES = [
   { icon: FileCheck2, label: 'Intelligent PR Review', desc: 'Accelerated peer reviews with multi-approval workflows' },
@@ -47,11 +43,6 @@ function LoginContent() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const quickLogin = (email: string) => {
-    setValue('email', email);
-    setValue('password', 'Password123!');
   };
 
   return (
@@ -113,10 +104,7 @@ function LoginContent() {
           </div>
 
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-secondary)] text-xs font-semibold mb-4">
-              <ShieldCheck className="w-3.5 h-3.5 text-[var(--accent)]" />
-              Secure Sign In
-            </div>
+
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">Welcome back</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">Sign in to your workspace to continue.</p>
           </div>
@@ -155,23 +143,6 @@ function LoginContent() {
             </Button>
           </form>
 
-          {/* Quick Login (Dev Helper) */}
-          <div className="space-y-4 pt-4">
-            <p className="text-xs text-[var(--text-tertiary)] text-center font-semibold uppercase tracking-wider">Quick Sign-in (Dev)</p>
-            <div className="grid grid-cols-3 gap-3">
-              {QUICK_LOGINS.map((q) => (
-                <button
-                  key={q.email}
-                  type="button"
-                  onClick={() => quickLogin(q.email)}
-                  className="px-2 py-2.5 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--text-secondary)] transition-all text-center"
-                >
-                  {q.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] text-[var(--text-tertiary)] text-center">All use password: <code className="text-[var(--text-primary)] font-mono">Password123!</code></p>
-          </div>
 
         </div>
       </div>

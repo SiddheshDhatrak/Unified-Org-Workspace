@@ -3,7 +3,7 @@ import React from 'react';
 import { useTicketDetail, useOrgContext, useUpdateTicketStatus } from '@workspace/hooks';
 import { Button, Badge, Modal, RoleGate, Textarea, cn } from '@workspace/ui-kit';
 import { tickets } from '@workspace/api-client';
-import { ArrowLeft, Send, Paperclip, Share2, AlertTriangle, RefreshCw, CheckCircle2, XCircle, Clock, User } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Share2, AlertTriangle, RefreshCw, CheckCircle2, XCircle, Clock, User, ChevronDown } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 
 function Toast({ message, type, onDismiss }: { message: string; type: 'error' | 'success'; onDismiss: () => void }) {
@@ -24,6 +24,73 @@ function Toast({ message, type, onDismiss }: { message: string; type: 'error' | 
 
 const STATUS_FLOW = ['OPEN', 'IN_PROGRESS', 'BLOCKED', 'RESOLVED', 'CLOSED'];
 
+function AssigneeDropdown({
+  currentAssigneeId,
+  members,
+  onAssign,
+  disabled
+}: {
+  currentAssigneeId: string | null;
+  members: any[];
+  onAssign: (id: string | null) => void;
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const currentMember = members.find(m => m.userId === currentAssigneeId);
+  const displayName = currentMember?.user?.fullName || currentMember?.userId || 'Unassigned';
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={cn(
+          "text-sm font-medium focus:outline-none transition-colors max-w-[160px] text-right flex items-center justify-end gap-1.5",
+          disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:text-[var(--accent)]"
+        )}
+        style={{ color: 'var(--text-primary)' }}
+      >
+        <span className="truncate">{displayName}</span>
+        {!disabled && <ChevronDown className="w-3.5 h-3.5 opacity-50 shrink-0" />}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl border border-[var(--border)] bg-[var(--surface)] py-1 z-50 overflow-hidden text-sm animate-in fade-in zoom-in-95 duration-100">
+          <button
+            onClick={() => { onAssign(null); setIsOpen(false); }}
+            className="w-full text-left px-3 py-2 hover:bg-[var(--surface-hover)] transition-colors"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Unassigned
+          </button>
+          {members.map(m => (
+            <button
+              key={m.userId}
+              onClick={() => { onAssign(m.userId); setIsOpen(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-[var(--surface-hover)] transition-colors truncate"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {m.user?.fullName || m.userId}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TicketDetailPage() {
   const params = useParams();
   const ticketId = String(params.ticketId);
@@ -40,6 +107,15 @@ export default function TicketDetailPage() {
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [retryCount, setRetryCount] = React.useState(0);
   const [toast, setToast] = React.useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [members, setMembers] = React.useState<any[]>([]);
+  const [attachments, setAttachments] = React.useState<{name: string}[]>([{ name: 'system_logs.txt' }]);
+
+  React.useEffect(() => {
+    if (orgId) {
+      import('@workspace/api-client').then(m => m.orgs.listMembers(orgId).then(setMembers).catch(() => {}));
+    }
+  }, [orgId]);
 
   const showToast = (message: string, type: 'error' | 'success') => setToast({ message, type });
 
@@ -79,20 +155,31 @@ export default function TicketDetailPage() {
     );
   };
 
-  const handleSimulatedUpload = () => {
+  const handleSimulatedUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
     setUploadError(null);
     setUploadProgress(10);
     const timer = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev === null) return null;
-        if (prev >= 80 && retryCount < 1 && Math.random() > 0.5) {
+        if (prev >= 80 && retryCount < 1 && Math.random() > 0.8) {
           clearInterval(timer);
           setUploadError('Network drop detected. Retrying automatically...');
           setTimeout(() => { setRetryCount(c => c + 1); setUploadError(null); setUploadProgress(100); }, 1500);
           return prev;
         }
-        if (prev >= 100) { clearInterval(timer); setTimeout(() => setUploadProgress(null), 800); return 100; }
-        return prev + 25;
+        if (prev >= 100) { 
+          clearInterval(timer); 
+          setTimeout(() => {
+            setUploadProgress(null);
+            setAttachments(a => [...a, { name: file.name }]);
+            showToast('File uploaded successfully', 'success');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }, 800); 
+          return 100; 
+        }
+        return prev + 30;
       });
     }, 400);
   };
@@ -185,8 +272,21 @@ export default function TicketDetailPage() {
                 <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   <Paperclip className="w-4 h-4" style={{ color: 'var(--accent)' }} /> Attachments
                 </div>
-                <Button variant="secondary" size="sm" onClick={handleSimulatedUpload} disabled={uploadProgress !== null}>Upload File</Button>
+                <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadProgress !== null}>Upload File</Button>
+                <input type="file" className="hidden" ref={fileInputRef} onChange={handleSimulatedUpload} />
               </div>
+              
+              {attachments.length > 0 && (
+                <div className="flex flex-col gap-2 mb-3">
+                  {attachments.map((att, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+                      <span className="text-xs font-medium text-[var(--text-primary)]">{att.name}</span>
+                      <span className="text-[10px] text-[var(--text-tertiary)]">Just now</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {uploadError && (
                 <p className="text-sm text-red-500 flex items-center gap-2 mb-3">
                   <RefreshCw className="w-4 h-4 animate-spin" /> {uploadError}
@@ -263,7 +363,20 @@ export default function TicketDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><User className="w-4 h-4" /> Assignee</span>
-                <span className="font-medium" style={{ color: 'var(--accent-text)' }}>{ticket.assignee?.fullName || 'Unassigned'}</span>
+                <AssigneeDropdown
+                  currentAssigneeId={ticket.assignee?.id || null}
+                  members={members}
+                  disabled={isGuestView}
+                  onAssign={async (newAssigneeId) => {
+                    try {
+                      await tickets.assign(orgId, ticket.id, newAssigneeId);
+                      refetch();
+                      showToast('Assignee updated', 'success');
+                    } catch (err: any) {
+                      showToast(err.message || 'Error updating assignee', 'error');
+                    }
+                  }}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><Clock className="w-4 h-4" /> Created</span>

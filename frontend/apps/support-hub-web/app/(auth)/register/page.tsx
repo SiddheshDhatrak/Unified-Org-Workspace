@@ -17,12 +17,14 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
+
 export default function RegisterPage() {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [step, setStep] = React.useState(1);
 
-  const { register, watch, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
+  const { register, watch, handleSubmit, trigger, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   });
 
@@ -40,6 +42,11 @@ export default function RegisterPage() {
 
   const strengthColor = ['bg-rose-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-emerald-400'][strengthScore];
   const strengthText = ['Very Weak', 'Weak', 'Moderate', 'Strong', 'Very Strong'][strengthScore];
+
+  const onNextStep = async () => {
+    const isValid = await trigger(['fullName', 'email', 'password']);
+    if (isValid) setStep(2);
+  };
 
   const onSubmit = async (data: RegisterFormValues) => {
     setIsSubmitting(true);
@@ -82,36 +89,51 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
-          <Input label="Full Name" placeholder="Alice Acme" {...register('fullName')} error={errors.fullName?.message} />
-          <Input label="Work Email" placeholder="alice@acme.com" {...register('email')} error={errors.email?.message} />
-          <Input label="Organization Name" placeholder="Acme Corp" {...register('organizationName')} error={errors.organizationName?.message} />
-          
-          <div className="space-y-1">
-            <Input label="Password" type="password" placeholder="Password123!" {...register('password')} error={errors.password?.message} />
-            {passwordValue.length > 0 && (
-              <div className="pt-1.5 space-y-1">
-                <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400">
-                  <span>Password Strength (§4.2)</span>
-                  <span className={cn('font-bold', strengthScore >= 3 ? 'text-emerald-400' : 'text-amber-400')}>{strengthText}</span>
+        <form onSubmit={handleSubmit(onSubmit)} className="relative w-full overflow-hidden">
+          <div className={cn("transition-all duration-300 ease-in-out space-y-3.5", step === 1 ? "translate-x-0 opacity-100 relative" : "-translate-x-full opacity-0 absolute top-0 w-full pointer-events-none")}>
+            <Input label="Full Name" placeholder="Alice Acme" {...register('fullName')} error={errors.fullName?.message} />
+            <Input label="Work Email" placeholder="alice@acme.com" {...register('email')} error={errors.email?.message} />
+            
+            <div className="space-y-1">
+              <Input label="Password" type="password" placeholder="Password123!" {...register('password')} error={errors.password?.message} />
+              {passwordValue.length > 0 && (
+                <div className="pt-1.5 space-y-1">
+                  <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400">
+                    <span>Password Strength (§4.2)</span>
+                    <span className={cn('font-bold', strengthScore >= 3 ? 'text-emerald-400' : 'text-amber-400')}>{strengthText}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden flex gap-1">
+                    {[1, 2, 3, 4].map((stepIdx) => (
+                      <div
+                        key={stepIdx}
+                        className={cn('flex-1 transition-all duration-300 rounded-full', stepIdx <= strengthScore ? strengthColor : 'bg-transparent')}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden flex gap-1">
-                  {[1, 2, 3, 4].map((step) => (
-                    <div
-                      key={step}
-                      className={cn('flex-1 transition-all duration-300 rounded-full', step <= strengthScore ? strengthColor : 'bg-transparent')}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            <Button type="button" onClick={onNextStep} variant="primary" size="lg" className="w-full mt-4 group">
+              <span>Next: Organization Details</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1 ml-1" />
+            </Button>
           </div>
 
-          <Button type="submit" variant="primary" size="lg" className="w-full mt-4 group" isLoading={isSubmitting}>
-            <span>Create Account & Org</span>
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Button>
+          <div className={cn("transition-all duration-300 ease-in-out space-y-3.5", step === 2 ? "translate-x-0 opacity-100 relative" : "translate-x-full opacity-0 absolute top-0 w-full pointer-events-none")}>
+            <Input label="Organization Name" placeholder="Acme Corp" {...register('organizationName')} error={errors.organizationName?.message} />
+            <div className="flex gap-2 mt-4 pt-2">
+              <Button type="button" onClick={() => setStep(1)} variant="secondary" size="lg" className="flex-1">
+                Back
+              </Button>
+              <Button type="submit" variant="primary" size="lg" className="flex-[2] group" isLoading={isSubmitting}>
+                <span>Create Account</span>
+                <CheckCircle2 className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
         </form>
+
 
         <div className="pt-3 border-t border-white/10 text-center">
           <p className="text-xs text-zinc-500">

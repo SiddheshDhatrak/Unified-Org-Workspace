@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { auth, ApiError } from '@workspace/api-client';
 import { Button, Input, cn } from '@workspace/ui-kit';
-import { ShieldCheck, Lock, ArrowRight, LifeBuoy, Users, Zap, Globe } from 'lucide-react';
+import { Lock, ArrowRight, LifeBuoy, Users, Zap, Globe } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
 const loginSchema = z.object({
@@ -14,11 +14,13 @@ const loginSchema = z.object({
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-const QUICK_LOGINS = [
-  { label: 'Alice (Admin)', email: 'alice@acme.com' },
-  { label: 'Bob (Agent)', email: 'bob@acme.com' },
-  { label: 'Charlie (Globex)', email: 'charlie@globex.com' },
-];
+const registerSchema = z.object({
+  fullName: z.string().min(2, 'Full name is required'),
+  email: z.string().email('Please enter a valid work email'),
+  password: z.string().min(8, 'Password must be at least 8 characters long'),
+  organizationName: z.string().min(2, 'Organization name is required'),
+});
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const FEATURES = [
   { icon: LifeBuoy, label: 'Smart Ticket Management', desc: 'Unified queue with AI triage and priority scoring' },
@@ -30,14 +32,32 @@ const FEATURES = [
 function LoginContent() {
   const searchParams = useSearchParams();
   const from = searchParams?.get('from') || '/tickets';
+  
+  const [mode, setMode] = React.useState<'login' | 'register'>('login');
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginFormValues>({
+  const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
+  const registerForm = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+  });
+
+  const passwordValue = registerForm.watch('password') || '';
+  const strengthScore = React.useMemo(() => {
+    let score = 0;
+    if (passwordValue.length >= 8) score += 1;
+    if (passwordValue.length >= 12) score += 1;
+    if (/[A-Z]/.test(passwordValue) && /[0-9]/.test(passwordValue)) score += 1;
+    if (/[^A-Za-z0-9]/.test(passwordValue)) score += 1;
+    return score;
+  }, [passwordValue]);
+  const strengthColor = ['bg-rose-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-emerald-400'][strengthScore];
+  const strengthText = ['Very Weak', 'Weak', 'Moderate', 'Strong', 'Very Strong'][strengthScore];
+
+  const onLoginSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
@@ -45,14 +65,32 @@ function LoginContent() {
       window.location.href = from;
     } catch (err: any) {
       setErrorMessage(err instanceof ApiError ? err.message : 'Invalid email or password. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
-  const quickLogin = (email: string) => {
-    setValue('email', email);
-    setValue('password', 'Password123!');
+  const onRegisterSubmit = async (data: RegisterFormValues) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await auth.register({
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName,
+        organizationName: data.organizationName,
+      });
+      window.location.href = '/tickets';
+    } catch (err: any) {
+      setErrorMessage(err instanceof ApiError ? err.message : 'Registration failed. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const switchMode = (newMode: 'login' | 'register') => {
+    setErrorMessage(null);
+    loginForm.reset();
+    registerForm.reset();
+    setMode(newMode);
   };
 
   return (
@@ -92,96 +130,126 @@ function LoginContent() {
             ))}
           </div>
         </div>
-
-        <div className="relative z-10 mt-12">
-          <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)]">
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              <span className="text-[var(--text-primary)] font-semibold">Secured by RS256 JWT + HttpOnly cookies</span> with 15-min access tokens, 30-day rotating refresh tokens, and replay attack detection.
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Right Form Panel */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 overflow-hidden relative">
+        <div className="w-full max-w-md relative min-h-[500px]">
+          
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-2">
+          <div className="lg:hidden flex items-center gap-3 mb-6">
             <div className="w-9 h-9 rounded-xl bg-[var(--accent)] flex items-center justify-center">
               <LifeBuoy className="w-4.5 h-4.5 text-white" />
             </div>
             <p className="text-base font-bold text-[var(--text-primary)]">Support Hub</p>
           </div>
 
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-secondary)] text-xs font-semibold mb-4">
-              <ShieldCheck className="w-3.5 h-3.5 text-[var(--accent)]" />
-              Secure Sign In
+          {/* LOGIN FORM */}
+          <div className={cn(
+            "absolute top-0 w-full transition-all duration-500 ease-in-out",
+            mode === 'login' ? "translate-x-0 opacity-100 pointer-events-auto" : "-translate-x-full opacity-0 pointer-events-none"
+          )}>
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Welcome back</h1>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">Sign in to your workspace to continue.</p>
             </div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Welcome back</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">Sign in to your workspace to continue.</p>
-          </div>
 
-          {errorMessage && (
-            <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400 text-sm">
-              <Lock className="w-4 h-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+            {errorMessage && mode === 'login' && (
+              <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400 text-sm mb-5">
+                <Lock className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="alice@acme.com"
-              {...register('email')}
-              error={errors.email?.message}
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••••••"
-              {...register('password')}
-              error={errors.password?.message}
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full mt-2 group"
-              isLoading={isSubmitting}
-            >
-              <span>Continue to Dashboard</span>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1 ml-1" />
-            </Button>
-          </form>
+            <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-5">
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="alice@acme.com"
+                {...loginForm.register('email')}
+                error={loginForm.formState.errors.email?.message}
+              />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="••••••••••••"
+                {...loginForm.register('password')}
+                error={loginForm.formState.errors.password?.message}
+              />
+              <Button type="submit" variant="primary" size="lg" className="w-full mt-2 group" isLoading={isSubmitting}>
+                <span>Continue to Dashboard</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1 ml-1" />
+              </Button>
+            </form>
 
-          {/* Quick Login (Dev Helper) */}
-          <div className="space-y-4 pt-4">
-            <p className="text-xs text-[var(--text-tertiary)] text-center font-semibold uppercase tracking-wider">Quick Sign-in (Dev)</p>
-            <div className="grid grid-cols-3 gap-3">
-              {QUICK_LOGINS.map((q) => (
-                <button
-                  key={q.email}
-                  type="button"
-                  onClick={() => quickLogin(q.email)}
-                  className="px-2 py-2.5 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--text-secondary)] transition-all text-center"
-                >
-                  {q.label}
+            <div className="pt-6 mt-6 border-t border-[var(--border)] text-center">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Don&apos;t have an account?{' '}
+                <button type="button" onClick={() => switchMode('register')} className="font-semibold text-[var(--accent)] hover:underline">
+                  Register your organization
                 </button>
-              ))}
+              </p>
             </div>
-            <p className="text-[10px] text-[var(--text-tertiary)] text-center">All use password: <code className="text-[var(--text-primary)] font-mono">Password123!</code></p>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-[var(--border)] text-center">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Don&apos;t have an account?{' '}
-              <a href="/register" className="font-semibold text-[var(--accent)] hover:underline">
-                Register your organization
-              </a>
-            </p>
+          {/* REGISTER FORM */}
+          <div className={cn(
+            "absolute top-0 w-full transition-all duration-500 ease-in-out",
+            mode === 'register' ? "translate-x-0 opacity-100 pointer-events-auto" : "translate-x-full opacity-0 pointer-events-none"
+          )}>
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create Workspace</h1>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">Register your organization to get started.</p>
+            </div>
+
+            {errorMessage && mode === 'register' && (
+              <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400 text-sm mb-5">
+                <Lock className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3.5">
+              <Input label="Full Name" placeholder="Alice Acme" {...registerForm.register('fullName')} error={registerForm.formState.errors.fullName?.message} />
+              <Input label="Work Email" placeholder="alice@acme.com" {...registerForm.register('email')} error={registerForm.formState.errors.email?.message} />
+              <Input label="Organization Name" placeholder="Acme Corp" {...registerForm.register('organizationName')} error={registerForm.formState.errors.organizationName?.message} />
+              
+              <div className="space-y-1">
+                <Input label="Password" type="password" placeholder="Password123!" {...registerForm.register('password')} error={registerForm.formState.errors.password?.message} />
+                {passwordValue.length > 0 && (
+                  <div className="pt-1.5 space-y-1">
+                    <div className="flex justify-between items-center text-[11px] font-semibold text-[var(--text-secondary)]">
+                      <span>Password Strength</span>
+                      <span className={cn('font-bold', strengthScore >= 3 ? 'text-emerald-500' : 'text-amber-500')}>{strengthText}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-[var(--border)] rounded-full overflow-hidden flex gap-1">
+                      {[1, 2, 3, 4].map((step) => (
+                        <div
+                          key={step}
+                          className={cn('flex-1 transition-all duration-300 rounded-full', step <= strengthScore ? strengthColor : 'bg-transparent')}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Button type="submit" variant="primary" size="lg" className="w-full mt-4 group" isLoading={isSubmitting}>
+                <span>Create Account & Org</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1 ml-1" />
+              </Button>
+            </form>
+
+            <div className="pt-6 mt-6 border-t border-[var(--border)] text-center">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Already have an account?{' '}
+                <button type="button" onClick={() => switchMode('login')} className="font-semibold text-[var(--accent)] hover:underline">
+                  Sign in
+                </button>
+              </p>
+            </div>
           </div>
+
         </div>
       </div>
     </div>

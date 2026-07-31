@@ -94,7 +94,13 @@ export default function TicketsPage() {
     if (!ticketId) return;
     updateStatusMutation.mutate(
       { ticketId, status: targetStatus, version },
-      { onError: (err: any) => showToast(`Transition rejected: ${err.message}`, 'error') }
+      { 
+        onSuccess: () => {
+          refetch();
+          showToast(`Ticket moved to ${targetStatus}`, 'success');
+        },
+        onError: (err: any) => showToast(`Transition rejected: ${err.message}`, 'error') 
+      }
     );
   };
 

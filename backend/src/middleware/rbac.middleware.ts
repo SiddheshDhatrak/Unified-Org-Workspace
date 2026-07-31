@@ -28,7 +28,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, OrgRole[]> = {
   'ticket:update': [OrgRole.ORG_ADMIN, OrgRole.SUPPORT_AGENT],
   'ticket:delete': [OrgRole.ORG_ADMIN, OrgRole.SUPPORT_AGENT],
   'ticket:comment': [OrgRole.ORG_ADMIN, OrgRole.SUPPORT_AGENT, OrgRole.REVIEWER_APPROVER],
-  'pr:create': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER],
+  'pr:create': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER, OrgRole.SUPPORT_AGENT],
   'pr:read': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER, OrgRole.SUPPORT_AGENT],
   'pr:review': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER],
   'pr:comment': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER],

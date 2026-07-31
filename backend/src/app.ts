@@ -1,8 +1,10 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 import { logger } from './shared/logger';
+import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler.middleware';
 import { requestIdMiddleware } from './middleware/requestId.middleware';
 import { rateLimitGlobal } from './middleware/rateLimit.middleware';
@@ -22,6 +24,7 @@ import aiDigestRoutes from './modules/aiDigest/aiDigest.routes';
 const app: Express = express();
 
 // Security Headers (§20.6) & CORS
+app.use(helmet());
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -29,7 +32,7 @@ app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: env.corsOrigins, credentials: true }));
 
 // Parsing
 app.use(express.json({ limit: '2mb' }));

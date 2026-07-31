@@ -172,6 +172,8 @@ export const tickets = {
     request<Ticket>('/tickets', { method: 'POST', orgId, body: JSON.stringify(data) }),
   update: (orgId: string, ticketId: string, data: Partial<Ticket>) =>
     request<Ticket>(`/tickets/${ticketId}`, { method: 'PATCH', orgId, body: JSON.stringify(data) }),
+  assign: (orgId: string, ticketId: string, assignedToId: string | null) =>
+    request(`/tickets/${ticketId}/assign`, { method: 'PATCH', orgId, body: JSON.stringify({ assignedToId }) }),
   delete: (orgId: string, ticketId: string) => request(`/tickets/${ticketId}`, { method: 'DELETE', orgId }),
   listComments: (orgId: string, ticketId: string) =>
     request<TicketComment[]>(`/tickets/${ticketId}/comments`, { orgId }),
