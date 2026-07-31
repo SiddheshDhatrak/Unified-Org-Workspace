@@ -17,7 +17,7 @@ router.post('/:id/restore', rbac('org:manage'), controller.restore);
 router.delete('/:id', rbac('org:manage'), controller.delete);
 
 // Member management
-router.get('/:id/members', rbac('org:manage'), controller.listMembers);
+router.get('/:id/members', rbac('org:read'), controller.listMembers);
 router.post('/:id/invitations', rbac('org:manage'), controller.invite);
 router.post('/:id/members/invite', rbac('org:manage'), controller.invite);
 router.patch('/:id/members/:membershipId', rbac('org:manage'), controller.updateMember);

@@ -21,8 +21,8 @@ export type PermissionAction =
   | 'pr:read'
   | 'pr:review'
   | 'pr:comment'
-  | 'audit:read'
   | 'audit:export'
+  | 'org:read'
   | 'org:manage'
   | 'crossorg:connect'
   | 'crossorg:share'
@@ -43,6 +43,7 @@ export const PERMISSION_MATRIX: Record<PermissionAction, OrgRole[]> = {
   'pr:comment': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER],
   'audit:read': [OrgRole.ORG_ADMIN, OrgRole.REVIEWER_APPROVER],
   'audit:export': [OrgRole.ORG_ADMIN],
+  'org:read': [OrgRole.ORG_ADMIN, OrgRole.SUPPORT_AGENT, OrgRole.REVIEWER_APPROVER],
   'org:manage': [OrgRole.ORG_ADMIN],
   'crossorg:connect': [OrgRole.ORG_ADMIN],
   'crossorg:share': [OrgRole.ORG_ADMIN, OrgRole.SUPPORT_AGENT, OrgRole.REVIEWER_APPROVER],

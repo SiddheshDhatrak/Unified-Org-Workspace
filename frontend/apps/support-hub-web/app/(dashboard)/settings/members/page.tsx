@@ -5,8 +5,9 @@ import { orgs } from '@workspace/api-client';
 import { Button, Input, Select, Table, Modal, Badge } from '@workspace/ui-kit';
 import { Users, UserPlus } from 'lucide-react';
 
-export default function MembersSettingsPage() {
-  const { orgId } = useOrgContext();
+export default function MembersPage() {
+  const { orgId, orgRole, isGuestView } = useOrgContext();
+  const isAdmin = orgRole === 'ORG_ADMIN';
   const [members, setMembers] = React.useState<any[]>([]);
   const [isInviteOpen, setIsInviteOpen] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState('');
@@ -55,30 +56,40 @@ export default function MembersSettingsPage() {
       header: 'Status',
       render: (m: any) => <Badge status={m.status || 'ACTIVE'} />,
     },
+    {
+      header: 'Actions',
+      render: (m: any) => (
+        /* Actions (Admin Only) */
+        isAdmin && (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm">Edit Role</Button>
+            <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">Remove</Button>
+          </div>
+        )
+      ),
+    },
   ];
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto animate-in fade-in-50">
-      <div className="border-b border-white/10 pb-4">
-        <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
-          <Users className="w-6 h-6 text-indigo-400" />
-          <span>Members Administration (§5.5)</span>
-        </h1>
-        <p className="text-xs text-zinc-400">Manage tenancy membership, invitations, and roles.</p>
+
+      <div className="flex justify-between items-center pb-4 border-b border-[var(--border)]">
+        <div>
+          <h1 className="text-2xl font-extrabold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Users className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+            <span>Organization Members</span>
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>View and manage members of this organization.</p>
+        </div>
+        {isAdmin && (
+          <Button variant="primary" onClick={() => setIsInviteOpen(true)}>
+            <UserPlus className="w-4 h-4 mr-2" />
+            Invite Member
+          </Button>
+        )}
       </div>
 
       <div className="p-6 rounded-3xl border border-white/10 bg-zinc-900/50 space-y-4 backdrop-blur-xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-zinc-300">Active Membership</h3>
-            <p className="text-xs text-zinc-400">Assign role matrices (SUPPORT_AGENT vs REVIEWER_APPROVER).</p>
-          </div>
-          <Button variant="primary" size="sm" onClick={() => setIsInviteOpen(true)}>
-            <UserPlus className="w-4 h-4" />
-            <span>Invite Member (§5.4)</span>
-          </Button>
-        </div>
-
         <Table data={members} columns={memberColumns} emptyMessage="No members loaded yet." />
       </div>
 

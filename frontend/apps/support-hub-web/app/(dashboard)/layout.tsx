@@ -48,11 +48,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { href: '/tickets', label: 'Tickets', icon: FolderDot, section: 'main' },
     { href: '/shared-with-me', label: 'Shared Items', icon: Share2, section: 'main' },
+    { href: '/settings/members', label: 'Members', icon: Users },
   ];
 
   const adminItems = [
     { href: '/settings/organization', label: 'Organization', icon: Building2 },
-    { href: '/settings/members', label: 'Members', icon: Users },
     { href: '/settings/feature-flags', label: 'Feature Flags', icon: Sliders },
     { href: '/settings/connections', label: 'Connections', icon: Shield },
   ];
