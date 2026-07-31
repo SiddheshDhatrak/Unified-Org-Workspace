@@ -56,6 +56,34 @@ A production-ready, full-stack monorepo platform that combines a **Support Hub**
 
 > Terminate all active sessions across ALL devices and dashboards with a single click. Enterprise-grade security for multi-device environments.
 
+---
+
+### 📝 Registration — Create Workspace
+<img src="docs/screenshots/register-page.png" alt="Registration Page" width="800"/>
+
+> New user registration with "Create New" or "Join Existing" organization modes. Create a brand-new workspace with a single form, or paste an invitation token to join an existing organization.
+
+---
+
+### 🎫 Ticket Detail — Support Hub
+<img src="docs/screenshots/ticket-detail.png" alt="Ticket Detail View" width="800"/>
+
+> Full ticket detail view with status workflow (Open → In Progress → Blocked → Resolved → Closed), assignee management, file attachments, and an activity/comments feed. Share tickets cross-org or delete them from the action bar.
+
+---
+
+### 🔍 PR Detail — Code Review with Diff Inspector
+<img src="docs/screenshots/pr-detail-review.png" alt="PR Detail with Review" width="800"/>
+
+> Pull request detail page showing the approval progress bar (1/2 approvals), reviewer assignment dropdown (+ Assign), version diff inspector with syntax-highlighted code changes, and action buttons for Approve / Request Changes.
+
+---
+
+### ✉️ Invite Team Member
+<img src="docs/screenshots/invite-member-modal.png" alt="Invite Member Modal" width="800"/>
+
+> Modal dialog for inviting new team members by email with role selection (Support Agent, Reviewer/Approver, Org Admin). Generates a unique invitation token that the invitee can use to join.
+
 </div>
 
 ---
