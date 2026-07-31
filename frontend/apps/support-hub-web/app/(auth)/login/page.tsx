@@ -17,7 +17,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   email: z.string().email('Please enter a valid work email'),
-  password: z.string().min(8, 'Password must be at least 8 characters long'),
+  password: z.string().min(10, 'Password must be at least 10 characters long'),
   organizationName: z.string().min(2, 'Organization name is required'),
 });
 type RegisterFormValues = z.infer<typeof registerSchema>;

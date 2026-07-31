@@ -9,8 +9,8 @@ import { ShieldCheck, Lock, ArrowRight, GitPullRequest, Code2, GitMerge, FileChe
 import { useSearchParams } from 'next/navigation';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Please enter a valid work email'),
+  password: z.string().min(10, 'Password must be at least 10 characters long'),
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
 

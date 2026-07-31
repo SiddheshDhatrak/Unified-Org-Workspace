@@ -14,21 +14,21 @@ export class IdentityController {
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string, csrfToken: string): void {
     const isProd = env.NODE_ENV === 'production';
 
-    // Access Token HttpOnly cookie (§4.9: SameSite=Lax for navigation between app and review subdomains)
+    // Access Token HttpOnly cookie (§4.9: SameSite=None for cross-domain Vercel->Railway)
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isProd,
       domain: isProd ? env.COOKIE_DOMAIN : undefined,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000, // 15m
     });
 
-    // Refresh Token HttpOnly cookie (§4.9: SameSite=Strict in prod, Lax in local dev for cross-port requests)
+    // Refresh Token HttpOnly cookie
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: isProd,
       domain: isProd ? env.COOKIE_DOMAIN : undefined,
-      sameSite: isProd ? 'strict' : 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
     });
 
@@ -37,7 +37,7 @@ export class IdentityController {
       httpOnly: false,
       secure: isProd,
       domain: isProd ? env.COOKIE_DOMAIN : undefined,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
   }
@@ -128,7 +128,7 @@ export class IdentityController {
         httpOnly: true,
         secure: isProd,
         domain: isProd ? env.COOKIE_DOMAIN : undefined,
-        sameSite: 'lax',
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000,
       });
 
