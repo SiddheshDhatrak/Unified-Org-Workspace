@@ -14,11 +14,13 @@ export class IdentityController {
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string, csrfToken: string): void {
     const isProd = env.NODE_ENV === 'production';
 
+    const domain = isProd && env.COOKIE_DOMAIN !== 'localhost' ? env.COOKIE_DOMAIN : undefined;
+
     // Access Token HttpOnly cookie (§4.9: SameSite=None for cross-domain Vercel->Railway)
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isProd,
-      domain: isProd ? env.COOKIE_DOMAIN : undefined,
+      domain,
       sameSite: isProd ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000, // 15m
     });
@@ -27,7 +29,7 @@ export class IdentityController {
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: isProd,
-      domain: isProd ? env.COOKIE_DOMAIN : undefined,
+      domain,
       sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
     });
@@ -36,7 +38,7 @@ export class IdentityController {
     res.cookie('csrf_token', csrfToken, {
       httpOnly: false,
       secure: isProd,
-      domain: isProd ? env.COOKIE_DOMAIN : undefined,
+      domain,
       sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
@@ -44,7 +46,7 @@ export class IdentityController {
 
   private clearAuthCookies(res: Response): void {
     const isProd = env.NODE_ENV === 'production';
-    const domain = isProd ? env.COOKIE_DOMAIN : undefined;
+    const domain = isProd && env.COOKIE_DOMAIN !== 'localhost' ? env.COOKIE_DOMAIN : undefined;
     res.clearCookie('access_token', { domain });
     res.clearCookie('refresh_token', { domain });
     res.clearCookie('csrf_token', { domain });
@@ -124,10 +126,11 @@ export class IdentityController {
 
       // Re-set access token cookie with new org claim
       const isProd = env.NODE_ENV === 'production';
+      const domain = isProd && env.COOKIE_DOMAIN !== 'localhost' ? env.COOKIE_DOMAIN : undefined;
       res.cookie('access_token', result.accessToken, {
         httpOnly: true,
         secure: isProd,
-        domain: isProd ? env.COOKIE_DOMAIN : undefined,
+        domain,
         sameSite: isProd ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000,
       });
