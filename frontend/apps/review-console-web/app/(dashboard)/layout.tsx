@@ -174,7 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <ConfirmDialog
         isOpen={showLogoutAllConfirm}
         onClose={() => setShowLogoutAllConfirm(false)}
-        onConfirm={async () => { await auth.logoutAll(); window.location.href = 'http://localhost:3000/login'; }}
+        onConfirm={async () => { await auth.logoutAll(); window.location.href = process.env.NEXT_PUBLIC_SUPPORT_HUB_URL ? `${process.env.NEXT_PUBLIC_SUPPORT_HUB_URL}/login` : 'http://localhost:3000/login'; }}
         title="Session Termination"
         message="Terminate active sessions across ALL devices and dashboards?"
         confirmLabel="Log out everywhere"

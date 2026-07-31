@@ -369,7 +369,7 @@ export default function TicketDetailPage() {
                   disabled={isGuestView}
                   onAssign={async (newAssigneeId) => {
                     try {
-                      await tickets.assign(orgId, ticket.id, newAssigneeId);
+                      await tickets.assign(orgId, ticket.id, newAssigneeId, ticket.version);
                       refetch();
                       showToast('Assignee updated', 'success');
                     } catch (err: any) {
