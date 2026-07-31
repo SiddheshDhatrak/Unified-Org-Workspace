@@ -6,6 +6,7 @@ import { Building2, Sliders, ShieldAlert, Trash2 } from 'lucide-react';
 
 export default function OrgSettingsPage() {
   const { orgId, orgName, orgRole } = useOrgContext();
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   React.useEffect(() => {
     // No-op
   }, [orgId]);
