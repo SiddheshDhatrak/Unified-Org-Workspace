@@ -43,12 +43,12 @@ export function useSession() {
 export function useOrgContext() {
   const { data: session, isLoading, error } = useSession();
   const activeOrg = session?.activeOrg;
-  const isGuestView = activeOrg?.orgRole === 'CROSS_ORG_GUEST' || activeOrg?.isGuestView === true;
+  const isGuestView = activeOrg?.role === 'CROSS_ORG_GUEST' || activeOrg?.isGuestView === true;
 
   return {
     orgId: activeOrg?.id || '',
     orgName: activeOrg?.name || 'Workspace',
-    orgRole: activeOrg?.orgRole,
+    orgRole: activeOrg?.role,
     appRoles: activeOrg?.appRoles || {},
     isGuestView,
     partnerOrgName: activeOrg?.partnerOrgName,
@@ -60,7 +60,7 @@ export function useOrgContext() {
 export function usePermission(permission: PermissionAction): boolean {
   const { data: session } = useSession();
   if (!session || !session.activeOrg) return false;
-  return checkPermission(session.activeOrg.orgRole, permission, session.user.isPlatformSuperAdmin);
+  return checkPermission(session.activeOrg.role, permission, session.user.isPlatformSuperAdmin);
 }
 
 export function useSwitchOrg() {

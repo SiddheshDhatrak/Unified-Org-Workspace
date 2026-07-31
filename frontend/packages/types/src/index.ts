@@ -69,7 +69,7 @@ export interface AvailableOrg {
   id: string;
   name: string;
   slug: string;
-  orgRole: OrgRole;
+  role: OrgRole;
   appRoles: Record<string, string[]>;
   status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED';
   settings?: Record<string, any>;

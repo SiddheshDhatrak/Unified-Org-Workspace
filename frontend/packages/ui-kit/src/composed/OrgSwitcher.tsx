@@ -70,8 +70,8 @@ export const OrgSwitcher: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Building2 className="w-3.5 h-3.5" style={{ color: isSelected ? 'var(--accent)' : 'var(--text-tertiary)' }} />
                       <div>
-                        <p className="font-medium text-sm">{org.name}</p>
-                        <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{org.orgRole}</p>
+                        <p className="text-sm font-medium leading-none" style={{ color: 'var(--text-primary)' }}>{org.name}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{org.role}</p>
                       </div>
                     </div>
                     {isSelected && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />}
