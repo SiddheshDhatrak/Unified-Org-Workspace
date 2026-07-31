@@ -15,8 +15,8 @@ import {
 } from '@workspace/types';
 
 export const API_BASE_URL = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000')
-  : 'http://localhost:4000';
+  ? '' // In browser, use relative paths so Next.js rewrites proxy the request, solving third-party cookie blocks!
+  : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000');
 
 function getCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
