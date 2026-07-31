@@ -18,7 +18,7 @@ const startServer = async () => {
     await setupScheduler();
 
     const PORT = typeof env.PORT === 'number' ? env.PORT : parseInt(String(env.PORT || 4000), 10);
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Unified Org Workspace Backend listening on port ${PORT} [${env.NODE_ENV}]`);
     });
   } catch (error) {
