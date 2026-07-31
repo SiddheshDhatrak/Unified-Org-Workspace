@@ -12,6 +12,7 @@ export type PermissionAction =
   | 'pr:read'
   | 'pr:review'
   | 'pr:comment'
+  | 'audit:read'
   | 'audit:export'
   | 'org:read'
   | 'org:manage'
