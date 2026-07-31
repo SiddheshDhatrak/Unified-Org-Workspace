@@ -122,10 +122,10 @@ export default function TicketsPage() {
       header: 'Assignee',
       render: (t: Ticket) => (
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-[var(--bg-tertiary)] flex items-center justify-center text-[10px] font-semibold text-[var(--text-secondary)] shrink-0">
-            {t.assignee?.fullName?.[0] || '?'}
+          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-hover)] text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+            {t.assignedTo?.fullName?.[0] || '?'}
           </div>
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t.assignee?.fullName || 'Unassigned'}</span>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t.assignedTo?.fullName || 'Unassigned'}</span>
         </div>
       ),
     },
@@ -289,12 +289,12 @@ export default function TicketsPage() {
                       <div className="flex items-center justify-between pt-3 mt-1 border-t border-[var(--border-light)]">
                         <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>v{ticket.version}</span>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                            {ticket.assignee?.fullName || 'Unassigned'}
+                          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {ticket.assignedTo?.fullName || 'Unassigned'}
                           </span>
-                          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-[var(--bg-tertiary)]" style={{ color: 'var(--text-secondary)' }}>
-                            {ticket.assignee?.fullName?.[0] || '?'}
-                          </div>
+                        </div>
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--surface-hover)] text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {ticket.assignedTo?.fullName?.[0] || '?'}
                         </div>
                       </div>
                     </div>

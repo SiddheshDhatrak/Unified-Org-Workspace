@@ -359,12 +359,12 @@ export default function TicketDetailPage() {
             <div className="space-y-3.5 text-sm">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><User className="w-4 h-4" /> Creator</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{ticket.creator?.fullName || 'Admin'}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{ticket.createdBy?.fullName || 'Admin'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><User className="w-4 h-4" /> Assignee</span>
                 <AssigneeDropdown
-                  currentAssigneeId={ticket.assignee?.id || null}
+                  currentAssigneeId={ticket.assignedTo?.id || null}
                   members={members}
                   disabled={isGuestView}
                   onAssign={async (newAssigneeId) => {

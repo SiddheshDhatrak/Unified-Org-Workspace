@@ -99,8 +99,8 @@ export interface Ticket {
   version: number;
   createdAt: string;
   updatedAt: string;
-  creator?: { id: string; fullName: string; avatarUrl?: string };
-  assignee?: { id: string; fullName: string; avatarUrl?: string };
+  createdBy?: { id: string; fullName: string; avatarUrl?: string };
+  assignedTo?: { id: string; fullName: string; avatarUrl?: string };
   shares?: Array<{ sharedWithOrgId: string; partnerOrgName?: string }>;
   _count?: { comments: number; attachments: number };
 }
