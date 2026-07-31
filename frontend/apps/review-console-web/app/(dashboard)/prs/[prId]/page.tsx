@@ -349,7 +349,10 @@ export default function PRDetailPage() {
                   value=""
                 >
                   <option value="" disabled>+ Assign</option>
-                  {members.filter(m => m.orgRole === 'ORG_ADMIN' || m.orgRole === 'REVIEWER_APPROVER').map(m => (
+                  {members
+                    .filter(m => m.orgRole === 'ORG_ADMIN' || m.orgRole === 'REVIEWER_APPROVER')
+                    .filter(m => !(pr.reviewers || []).some((r: any) => r.reviewerId === m.userId || r.user?.id === m.userId))
+                    .map(m => (
                     <option key={m.userId} value={m.userId}>{m.user?.fullName || m.userId}</option>
                   ))}
                 </select>

@@ -117,7 +117,8 @@ export function useTickets(orgId: string, filters?: Record<string, any>) {
     queryKey: ['org-scoped', orgId, 'tickets', filters],
     queryFn: () => tickets.list(orgId, filters),
     enabled: Boolean(orgId),
-    staleTime: 30 * 1000,
+    staleTime: 10 * 1000,
+    refetchInterval: 10 * 1000,
   });
 }
 
@@ -126,6 +127,7 @@ export function useTicketDetail(orgId: string, ticketId: string) {
     queryKey: ['org-scoped', orgId, 'tickets', ticketId],
     queryFn: () => tickets.get(orgId, ticketId),
     enabled: Boolean(orgId && ticketId),
+    refetchInterval: 10 * 1000,
   });
 }
 
@@ -149,7 +151,8 @@ export function usePullRequests(orgId: string, filters?: Record<string, any>) {
     queryKey: ['org-scoped', orgId, 'prs', filters],
     queryFn: () => prs.list(orgId, filters),
     enabled: Boolean(orgId),
-    staleTime: 30 * 1000,
+    staleTime: 10 * 1000,
+    refetchInterval: 10 * 1000,
   });
 }
 
@@ -158,6 +161,7 @@ export function usePRDetail(orgId: string, prId: string) {
     queryKey: ['org-scoped', orgId, 'prs', prId],
     queryFn: () => prs.get(orgId, prId),
     enabled: Boolean(orgId && prId),
+    refetchInterval: 10 * 1000,
   });
 }
 
