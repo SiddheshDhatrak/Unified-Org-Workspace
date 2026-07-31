@@ -133,7 +133,7 @@ export function useUpdateTicketStatus(orgId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ ticketId, status, version }: { ticketId: string; status: any; version: number }) =>
-      tickets.update(orgId, ticketId, { status, version }),
+      tickets.update(orgId, ticketId, { status, expectedVersion: version }),
     onSuccess: (updatedTicket) => {
       queryClient.invalidateQueries({ queryKey: ['org-scoped', orgId, 'tickets'] });
       queryClient.setQueryData(['org-scoped', orgId, 'tickets', updatedTicket.id], updatedTicket);

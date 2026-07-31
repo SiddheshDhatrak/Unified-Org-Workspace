@@ -13,8 +13,10 @@ export default function FeatureFlagsPage() {
     try {
       await featureFlags.toggle(orgId, key, !current);
       refetch();
+      alert('Toggled successfully');
+      refetch();
     } catch (e: any) {
-      alert(e.message || 'Toggled successfully');
+      alert(e.message || 'Error toggling flag');
       refetch();
     }
   };
@@ -24,7 +26,10 @@ export default function FeatureFlagsPage() {
     { key: 'beta-analytics', label: 'Advanced Telemetry & Analytics', description: 'Enables extended telemetry traces and export capabilities.', enabled: false },
   ];
 
-  const list = (flags && flags.length > 0 ? flags : defaultFlags) as Array<{ key: string; label?: string; description?: string; enabled: boolean }>;
+  const list = defaultFlags.map(df => {
+    const override = flags?.find((f: any) => f.key === df.key);
+    return { ...df, enabled: override ? override.enabled : df.enabled };
+  }) as Array<{ key: string; label?: string; description?: string; enabled: boolean }>;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in-50">

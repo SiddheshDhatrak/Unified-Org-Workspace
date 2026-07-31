@@ -11,6 +11,7 @@ export default function MembersSettingsPage() {
   const [isInviteOpen, setIsInviteOpen] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState('');
   const [inviteRole, setInviteRole] = React.useState('SUPPORT_AGENT');
+  const [inviteToken, setInviteToken] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (orgId) {
@@ -20,14 +21,19 @@ export default function MembersSettingsPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!inviteEmail) return;
     try {
-      await orgs.inviteMember(orgId, inviteEmail, inviteRole);
-      setIsInviteOpen(false);
+      const res = await orgs.inviteMember(orgId, inviteEmail, inviteRole);
+      // If the backend returns the invitation object with the token in res
+      if (res && (res as any).token) {
+        setInviteToken((res as any).token);
+      } else {
+        alert('Invitation sent! (Email service not configured in MVP, token generated internally)');
+      }
       setInviteEmail('');
       orgs.listMembers(orgId).then(setMembers).catch(() => {});
     } catch (err: any) {
       alert(err.message || 'Invitation sent!');
-      setIsInviteOpen(false);
     }
   };
 
@@ -78,18 +84,32 @@ export default function MembersSettingsPage() {
 
       {/* Invite Modal */}
       <Modal isOpen={isInviteOpen} onClose={() => setIsInviteOpen(false)} title="Invite Team Member (§5.4)">
-        <form onSubmit={handleInvite} className="space-y-4">
-          <Input label="Colleague Email" placeholder="bob@acme.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
-          <Select label="Initial Org Role" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-            <option value="SUPPORT_AGENT">Support Agent (Tickets & Support)</option>
-            <option value="REVIEWER_APPROVER">Reviewer Approver (PR Console & Audit)</option>
-            <option value="ORG_ADMIN">Organization Admin</option>
-          </Select>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary">Send Invitation</Button>
-          </div>
-        </form>
+        <div className="space-y-4 mt-2">
+          {inviteToken ? (
+            <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <p className="text-sm font-semibold mb-2">Invitation created successfully!</p>
+              <p className="text-xs mb-2">Since the email service is not configured in this MVP, please copy the invitation token below and share it with the user. They can use it during registration.</p>
+              <div className="flex gap-2">
+                <Input value={inviteToken} readOnly />
+                <Button variant="primary" onClick={() => { navigator.clipboard.writeText(inviteToken); alert('Copied!'); }}>Copy</Button>
+              </div>
+              <Button className="mt-4 w-full" variant="ghost" onClick={() => { setIsInviteOpen(false); setInviteToken(null); }}>Close</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleInvite} className="space-y-4 mt-2">
+              <Input label="Email Address" type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required placeholder="colleague@company.com" />
+              <Select label="Role" value={inviteRole} onChange={e => setInviteRole(e.target.value)}>
+                <option value="SUPPORT_AGENT">Support Agent</option>
+                <option value="REVIEWER_APPROVER">Reviewer / Approver</option>
+                <option value="ORG_ADMIN">Organization Admin</option>
+              </Select>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
+                <Button type="submit" variant="primary">Send Invite</Button>
+              </div>
+            </form>
+          )}
+        </div>
       </Modal>
     </div>
   );
