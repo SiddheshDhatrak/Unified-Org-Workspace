@@ -140,12 +140,8 @@ export class IdentityController {
 
   getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      res.status(200).json({
-        data: {
-          user: req.user,
-          activeOrg: req.orgContext ? { orgId: req.orgContext.orgId, membership: req.orgContext.membership } : null,
-        },
-      });
+      const result = await this.service.getMe(req.user!.id, req.orgContext?.orgId);
+      res.status(200).json({ data: result });
     } catch (error) {
       next(error);
     }

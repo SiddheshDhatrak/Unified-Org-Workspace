@@ -1,19 +1,39 @@
 'use client';
 import React from 'react';
 import { useTickets, useOrgContext, useUpdateTicketStatus } from '@workspace/hooks';
-import { Button, Input, Select, Badge, DigestCard, Table, EmptyState, Modal, RoleGate, cn } from '@workspace/ui-kit';
+import { Button, Badge, DigestCard, Table, EmptyState, Modal, RoleGate, Input, Textarea, Select, cn } from '@workspace/ui-kit';
 import { Ticket, TicketStatus } from '@workspace/types';
-import { Plus, LayoutGrid, ListFilter, Search, ArrowUpRight } from 'lucide-react';
+import { Plus, LayoutGrid, ListFilter, Search, ArrowUpRight, FolderDot, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { tickets } from '@workspace/api-client';
 
-const KANBAN_COLUMNS: { status: TicketStatus; label: string; color: string }[] = [
-  { status: 'OPEN', label: 'Open', color: 'border-blue-500/40 bg-blue-500/5' },
-  { status: 'IN_PROGRESS', label: 'In Progress', color: 'border-amber-500/40 bg-amber-500/5' },
-  { status: 'BLOCKED', label: 'Blocked', color: 'border-rose-500/40 bg-rose-500/5' },
-  { status: 'RESOLVED', label: 'Resolved', color: 'border-emerald-500/40 bg-emerald-500/5' },
-  { status: 'CLOSED', label: 'Closed', color: 'border-zinc-500/40 bg-zinc-500/5' },
+const KANBAN_COLUMNS: { status: TicketStatus; label: string; }[] = [
+  { status: 'OPEN', label: 'Open' },
+  { status: 'IN_PROGRESS', label: 'In Progress' },
+  { status: 'BLOCKED', label: 'Blocked' },
+  { status: 'RESOLVED', label: 'Resolved' },
+  { status: 'CLOSED', label: 'Closed' },
 ];
+
+function Toast({ message, type, onDismiss }: { message: string; type: 'error' | 'success'; onDismiss: () => void }) {
+  React.useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className={cn(
+      'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-xl text-sm font-medium toast-enter max-w-sm transition-all',
+      type === 'error'
+        ? 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950/80 dark:border-red-900/50 dark:text-red-200'
+        : 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/80 dark:border-emerald-900/50 dark:text-emerald-200'
+    )}>
+      {type === 'error' ? <XCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+      <span>{message}</span>
+      <button onClick={onDismiss} className="ml-auto opacity-50 hover:opacity-100">✕</button>
+    </div>
+  );
+}
 
 export default function TicketsPage() {
   const { orgId, isGuestView } = useOrgContext();
@@ -21,8 +41,8 @@ export default function TicketsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedStatus, setSelectedStatus] = React.useState<string>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
+  const [toast, setToast] = React.useState<{ message: string; type: 'error' | 'success' } | null>(null);
 
-  // New Ticket state
   const [newTitle, setNewTitle] = React.useState('');
   const [newDescription, setNewDescription] = React.useState('');
   const [newPriority, setNewPriority] = React.useState('MEDIUM');
@@ -35,7 +55,14 @@ export default function TicketsPage() {
   });
 
   const updateStatusMutation = useUpdateTicketStatus(orgId);
-  const ticketList = (ticketsResponse?.data || []) as Ticket[];
+  const ticketList = (Array.isArray(ticketsResponse) ? ticketsResponse : ticketsResponse?.data || []) as Ticket[];
+
+  const openCount = ticketList.filter(t => t.status === 'OPEN').length;
+  const inProgressCount = ticketList.filter(t => t.status === 'IN_PROGRESS').length;
+  const blockedCount = ticketList.filter(t => t.status === 'BLOCKED').length;
+  const resolvedCount = ticketList.filter(t => t.status === 'RESOLVED').length;
+
+  const showToast = (message: string, type: 'error' | 'success') => setToast({ message, type });
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +74,9 @@ export default function TicketsPage() {
       setNewTitle('');
       setNewDescription('');
       refetch();
+      showToast('Ticket created successfully!', 'success');
     } catch (err: any) {
-      alert(err.message || 'Error creating ticket');
+      showToast(err.message || 'Error creating ticket', 'error');
     } finally {
       setIsCreating(false);
     }
@@ -64,71 +92,82 @@ export default function TicketsPage() {
     const ticketId = e.dataTransfer.getData('ticketId');
     const version = parseInt(e.dataTransfer.getData('version'), 10);
     if (!ticketId) return;
-
     updateStatusMutation.mutate(
       { ticketId, status: targetStatus, version },
-      {
-        onError: (err: any) => {
-          alert(`State Transition Rejected (§26 Edge Case 3): ${err.message}`);
-        },
-      }
+      { onError: (err: any) => showToast(`Transition rejected: ${err.message}`, 'error') }
     );
   };
 
   const tableColumns = [
     {
-      header: 'Title & Summary',
+      header: 'Title',
       render: (t: Ticket) => (
         <div className="space-y-0.5">
-          <p className="font-bold text-white hover:text-indigo-400 transition-colors flex items-center gap-1.5">
-            <span>{t.title}</span>
-            <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500" />
+          <p className="font-medium hover:underline flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+            {t.title}
           </p>
-          <p className="text-xs text-zinc-400 line-clamp-1 max-w-md">{t.description}</p>
+          <p className="text-xs line-clamp-1 max-w-md" style={{ color: 'var(--text-tertiary)' }}>{t.description}</p>
         </div>
       ),
     },
-    {
-      header: 'Status',
-      render: (t: Ticket) => <Badge status={t.status} />,
-    },
-    {
-      header: 'Priority',
-      render: (t: Ticket) => <Badge status={t.priority} />,
-    },
+    { header: 'Status', render: (t: Ticket) => <Badge status={t.status} /> },
+    { header: 'Priority', render: (t: Ticket) => <Badge status={t.priority} /> },
     {
       header: 'Assignee',
       render: (t: Ticket) => (
-        <span className="text-xs font-semibold text-zinc-300">
-          {t.assignee?.fullName || 'Unassigned'}
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-[var(--bg-tertiary)] flex items-center justify-center text-[10px] font-semibold text-[var(--text-secondary)] shrink-0">
+            {t.assignee?.fullName?.[0] || '?'}
+          </div>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t.assignee?.fullName || 'Unassigned'}</span>
+        </div>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* AI Progress Tracker Card (§15.1) */}
+    <div className="space-y-6 page-enter pb-10">
+      {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
+
       <DigestCard />
 
-      {/* Top Controls Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/40 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+      {!isLoading && ticketList.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: 'Open', count: openCount, icon: FolderDot },
+            { label: 'In Progress', count: inProgressCount, icon: Clock },
+            { label: 'Blocked', count: blockedCount, icon: AlertCircle },
+            { label: 'Resolved', count: resolvedCount, icon: CheckCircle2 },
+          ].map(({ label, count, icon: Icon }) => (
+            <div key={label} className="flex items-center gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--accent-light)] text-[var(--accent-text)] shrink-0">
+                <Icon className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xl font-bold leading-none" style={{ color: 'var(--text-primary)' }}>{count}</p>
+                <p className="text-xs font-medium mt-1" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
         <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tickets..."
-              className="w-full h-9 pl-9 pr-3 text-xs bg-zinc-950 border border-white/10 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full h-9 pl-9 pr-3 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-all"
             />
           </div>
-
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="h-9 px-3 text-xs bg-zinc-950 border border-white/10 rounded-xl text-zinc-300 focus:outline-none"
+            className="h-9 px-3 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
           >
             <option value="">All Statuses</option>
             <option value="OPEN">Open</option>
@@ -138,64 +177,66 @@ export default function TicketsPage() {
           </select>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-          {/* List / Board Toggle (§10.1) */}
-          <div className="flex rounded-xl bg-zinc-950 p-1 border border-white/10">
-            <button
-              onClick={() => setViewMode('board')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                viewMode === 'board' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-              )}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Kanban Board</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                viewMode === 'list' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-              )}
-            >
-              <ListFilter className="w-3.5 h-3.5" />
-              <span>List Table</span>
-            </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex rounded-lg bg-[var(--bg-tertiary)] p-1 border border-[var(--border)]">
+            {[
+              { mode: 'board' as const, Icon: LayoutGrid, label: 'Board' },
+              { mode: 'list' as const, Icon: ListFilter, label: 'List' },
+            ].map(({ mode, Icon, label }) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                  viewMode === mode
+                    ? 'bg-[var(--surface)] shadow-sm text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
           </div>
 
           {!isGuestView && (
-            <RoleGate permission="ticket:create">
-              <Button variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)} className="flex-shrink-0">
-                <Plus className="w-4 h-4" />
-                <span>New Ticket</span>
-              </Button>
-            </RoleGate>
+            <Button variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="w-4 h-4" />
+              New Ticket
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Main View Area */}
       {isLoading ? (
-        <div className="w-full h-64 rounded-2xl border border-white/10 bg-zinc-900/30 animate-pulse flex items-center justify-center text-zinc-500">
-          Loading ticketing workspace...
-        </div>
+        viewMode === 'board' ? (
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {KANBAN_COLUMNS.map(col => (
+              <div key={col.status} className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3 min-h-[420px]">
+                <div className="h-4 w-20 rounded shimmer mb-4" />
+                {[1, 2].map(i => (
+                  <div key={i} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 mb-3">
+                    <div className="h-3 w-full rounded shimmer mb-2" />
+                    <div className="h-3 w-2/3 rounded shimmer" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Table data={[]} columns={tableColumns} isLoading />
+        )
       ) : ticketList.length === 0 ? (
         <EmptyState
           title="No Tickets Found"
-          subtitle="Your organization currently has zero open tickets matching these filters."
-          actionLabel={!isGuestView ? 'Create First Ticket' : undefined}
+          subtitle="Your organization has no tickets matching these filters."
+          actionLabel={!isGuestView ? 'Create Ticket' : undefined}
           onAction={!isGuestView ? () => setIsCreateModalOpen(true) : undefined}
         />
       ) : viewMode === 'list' ? (
-        <Table
-          data={ticketList}
-          columns={tableColumns}
-          onRowClick={(t) => router.push(`/tickets/${t.id}`)}
-          className="animate-in fade-in-50"
-        />
+        <Table data={ticketList} columns={tableColumns} onRowClick={(t) => router.push(`/tickets/${t.id}`)} />
       ) : (
-        /* Kanban Board (§10.1) */
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-4 animate-in fade-in-50">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {KANBAN_COLUMNS.map((col) => {
             const colTickets = ticketList.filter((t) => t.status === col.status);
             return (
@@ -203,43 +244,52 @@ export default function TicketsPage() {
                 key={col.status}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, col.status)}
-                className={cn(
-                  'flex flex-col rounded-2xl border border-white/10 p-3 bg-zinc-900/40 min-h-[460px] shadow-lg transition-all',
-                  col.color
-                )}
+                className="flex flex-col rounded-xl bg-[var(--bg-secondary)] min-h-[500px] border border-[var(--border)]"
               >
-                <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-zinc-200">{col.label}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-[11px] font-bold text-zinc-400">
+                <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{col.label}</span>
+                  <span className="px-2 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                     {colTickets.length}
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-3 overflow-y-auto max-h-[620px]">
+                <div className="flex-1 p-3 space-y-3 overflow-y-auto">
                   {colTickets.map((ticket) => (
                     <div
                       key={ticket.id}
                       draggable={!isGuestView}
                       onDragStart={(e) => handleDragStart(e, ticket)}
                       onClick={() => router.push(`/tickets/${ticket.id}`)}
-                      className="p-4 rounded-xl border border-white/10 bg-zinc-950/80 hover:bg-zinc-900 shadow-md transition-all duration-200 cursor-pointer group hover:border-indigo-500/50 hover:shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                      className="group flex flex-col gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-[var(--accent)]"
                     >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <Badge status={ticket.priority} className="text-[10px] px-2 py-0.5" />
+                      <div className="flex flex-wrap gap-2 items-center justify-between">
+                        <Badge status={ticket.priority} />
                         {ticket.shares && ticket.shares.length > 0 && (
-                          <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                            Shared (§10.6)
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400">
+                            Shared
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-extrabold text-white group-hover:text-indigo-300 transition-colors line-clamp-2">
-                        {ticket.title}
-                      </p>
-                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{ticket.description}</p>
                       
-                      <div className="flex items-center justify-between mt-4 pt-2 border-t border-white/5 text-[11px] text-zinc-500 font-mono">
-                        <span>v{ticket.version}</span>
-                        <span className="truncate max-w-[120px]">{ticket.assignee?.fullName || 'Unassigned'}</span>
+                      <div>
+                        <p className="text-sm font-medium leading-snug mb-1" style={{ color: 'var(--text-primary)' }}>
+                          {ticket.title}
+                        </p>
+                        {ticket.description && (
+                          <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{ticket.description}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 mt-1 border-t border-[var(--border-light)]">
+                        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>v{ticket.version}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                            {ticket.assignee?.fullName || 'Unassigned'}
+                          </span>
+                          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-[var(--bg-tertiary)]" style={{ color: 'var(--text-secondary)' }}>
+                            {ticket.assignee?.fullName?.[0] || '?'}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -250,34 +300,18 @@ export default function TicketsPage() {
         </div>
       )}
 
-      {/* New Ticket Modal */}
-      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create New Ticket (§10.1)">
-        <form onSubmit={handleCreateTicket} className="space-y-4">
-          <Input
-            label="Ticket Title"
-            placeholder="Login timeout spikes during peak hours"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            required
-          />
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-zinc-300 uppercase">Description (Markdown Supported)</label>
-            <textarea
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="Provide context, error traces, and steps to reproduce..."
-              className="w-full h-28 p-3 rounded-xl bg-zinc-900 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-          </div>
-          <Select label="Priority Level" value={newPriority} onChange={(e) => setNewPriority(e.target.value)}>
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Ticket">
+        <form onSubmit={handleCreateTicket} className="space-y-4 mt-2">
+          <Input label="Title" value={newTitle} onChange={e => setNewTitle(e.target.value)} required placeholder="Short summary of the issue" />
+          <Textarea label="Description" value={newDescription} onChange={e => setNewDescription(e.target.value)} required placeholder="Provide context..." />
+          <Select label="Priority" value={newPriority} onChange={e => setNewPriority(e.target.value)}>
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
             <option value="URGENT">Urgent</option>
           </Select>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
             <Button type="submit" variant="primary" isLoading={isCreating}>Create Ticket</Button>
           </div>
         </form>

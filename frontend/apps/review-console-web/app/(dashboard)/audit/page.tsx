@@ -1,9 +1,9 @@
 'use client';
 import React from 'react';
-import { useAuditLogs, useOrgContext } from '@workspace/hooks';
-import { Button, Table, Badge, DiffViewer, cn } from '@workspace/ui-kit';
-import { AuditRecord } from '@workspace/types';
-import { Database, Download, Eye, RefreshCw, ChevronDown, Check } from 'lucide-react';
+import { useAuditFeed, useOrgContext } from '@workspace/hooks';
+import { Button, Table, DiffViewer, cn } from '@workspace/ui-kit';
+import { AuditEvent } from '@workspace/types';
+import { Database, Download, Eye, RefreshCw, Check } from 'lucide-react';
 import { audit } from '@workspace/api-client';
 
 export default function AuditViewerPage() {
@@ -13,13 +13,13 @@ export default function AuditViewerPage() {
   const [expandedLogId, setExpandedLogId] = React.useState<string | null>(null);
   const [isExporting, setIsExporting] = React.useState(false);
 
-  const { data: logsResponse, isLoading, refetch, isFetching } = useAuditLogs(orgId, {
+  const { data: logsResponse, isLoading, refetch, isFetching } = useAuditFeed(orgId, {
     cursor,
     actions: selectedActions.length > 0 ? selectedActions.join(',') : undefined,
   });
 
-  const logs = (logsResponse?.data || []) as AuditRecord[];
-  const nextCursor = logsResponse?.nextCursor;
+  const logs = (logsResponse?.pages?.flatMap(page => page.data) || []) as AuditEvent[];
+  const nextCursor = logsResponse?.pages?.[logsResponse.pages.length - 1]?.nextCursor;
 
   const handleToggleAction = (action: string) => {
     setSelectedActions((prev) =>
@@ -31,14 +31,13 @@ export default function AuditViewerPage() {
     setIsExporting(true);
     try {
       const result = await audit.exportCsv(orgId, { actions: selectedActions.join(',') });
-      // Simulate file download trigger (§14.4)
       const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `audit-export-${orgId}-${Date.now()}.csv`;
       a.click();
-      alert('Streaming CSV audit dump generated successfully (§14.4)!');
+      alert('Streaming CSV audit dump generated successfully.');
     } catch (e: any) {
       alert(`Export error: ${e.message}`);
     } finally {
@@ -51,81 +50,81 @@ export default function AuditViewerPage() {
   const tableColumns = [
     {
       header: 'Timestamp & ID',
-      render: (r: AuditRecord) => (
-        <div className="font-mono text-xs">
-          <p className="text-zinc-200 font-bold">{new Date(r.createdAt || Date.now()).toLocaleString()}</p>
-          <p className="text-[10px] text-zinc-500">ID: {r.id}</p>
+      render: (r: AuditEvent) => (
+        <div className="font-mono">
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{new Date(r.createdAt || Date.now()).toLocaleString()}</p>
+          <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>ID: {r.id}</p>
         </div>
       ),
     },
     {
       header: 'Action Name',
-      render: (r: AuditRecord) => (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-zinc-800 text-purple-300 font-mono font-bold text-xs border border-purple-500/20">
+      render: (r: AuditEvent) => (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-[var(--accent-light)]" style={{ color: 'var(--accent-text)' }}>
           {r.action || 'AUDIT_RECORD'}
         </span>
       ),
     },
     {
       header: 'Actor',
-      render: (r: AuditRecord) => (
-        <span className="text-xs font-semibold text-zinc-300">
+      render: (r: AuditEvent) => (
+        <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
           {r.actorId || 'System Auto'}
         </span>
       ),
     },
     {
       header: 'Target Resource',
-      render: (r: AuditRecord) => (
-        <span className="text-xs font-mono text-cyan-400">
-          {r.targetId || 'Organization'}
+      render: (r: AuditEvent) => (
+        <span className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
+          {r.resourceId || 'Organization'}
         </span>
       ),
     },
     {
       header: 'Change Inspection',
-      render: (r: AuditRecord) => (
+      render: (r: AuditEvent) => (
         <button
           onClick={(e) => {
             e.stopPropagation();
             setExpandedLogId(expandedLogId === r.id ? null : r.id);
           }}
-          className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5 border border-white/10"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+          style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
         >
-          <Eye className="w-3.5 h-3.5 text-purple-400" />
-          <span>{expandedLogId === r.id ? 'Hide Diff' : 'Inspect Diff (§14.3)'}</span>
+          <Eye className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <span>{expandedLogId === r.id ? 'Hide Diff' : 'Inspect Diff'}</span>
         </button>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in-50">
+    <div className="space-y-6 max-w-6xl mx-auto page-enter pb-10">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <Database className="w-6 h-6 text-cyan-400" />
-            <span>Unified Audit Viewer (§14)</span>
+          <h1 className="text-2xl font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Database className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            <span>Unified Audit Viewer</span>
           </h1>
-          <p className="text-xs text-zinc-400">Immutable governance ledger with real-time cursor pagination and streaming export.</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Immutable governance ledger with real-time cursor pagination.</p>
         </div>
 
         <div className="flex items-center gap-3">
           <Button variant="secondary" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={cn('w-4 h-4 text-zinc-400', isFetching && 'animate-spin')} />
+            <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
             <span>Refresh Feed</span>
           </Button>
-          <Button variant="primary" size="sm" onClick={handleExportCSV} isLoading={isExporting} className="bg-gradient-to-r from-cyan-600 to-indigo-600 border-cyan-400/30">
-            <Download className="w-4 h-4" />
-            <span>Stream CSV Dump (§14.4)</span>
+          <Button variant="primary" size="sm" onClick={handleExportCSV} isLoading={isExporting}>
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
           </Button>
         </div>
       </div>
 
-      {/* Multi-select filter bar (§14.2) */}
-      <div className="p-4 rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-xl space-y-2">
-        <span className="text-xs font-extrabold uppercase tracking-wider text-zinc-400 block">Filter Action Types (§14.2)</span>
+      <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Filter Actions</span>
         <div className="flex flex-wrap gap-2">
           {availableActions.map((action) => {
             const isSelected = selectedActions.includes(action);
@@ -134,11 +133,14 @@ export default function AuditViewerPage() {
                 key={action}
                 onClick={() => handleToggleAction(action)}
                 className={cn(
-                  'px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border',
-                  isSelected ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm' : 'bg-zinc-950 text-zinc-400 border-white/10 hover:border-white/25 hover:text-white'
+                  'px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 border',
+                  isSelected
+                    ? 'bg-[var(--accent-light)] border-[var(--accent)]'
+                    : 'bg-[var(--bg)] border-[var(--border)] hover:border-[var(--text-tertiary)]'
                 )}
+                style={{ color: isSelected ? 'var(--accent-text)' : 'var(--text-secondary)' }}
               >
-                {isSelected && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                {isSelected && <Check className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />}
                 <span>{action}</span>
               </button>
             );
@@ -146,7 +148,6 @@ export default function AuditViewerPage() {
         </div>
       </div>
 
-      {/* Audit Logs Table (§14.1 / §9.6) */}
       <div className="space-y-4">
         <Table
           data={logs}
@@ -158,14 +159,13 @@ export default function AuditViewerPage() {
           isLoadingMore={isFetching}
         />
 
-        {/* Expanded Diff Viewer Modal or Inline card (§14.3) */}
         {expandedLogId && (
-          <div className="p-6 rounded-3xl border border-purple-500/30 bg-zinc-900/80 shadow-2xl backdrop-blur-2xl space-y-3 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <span className="text-sm font-extrabold text-white">Before / After Mutation Diff (§14.3)</span>
-              <button onClick={() => setExpandedLogId(null)} className="text-xs text-zinc-400 hover:text-white">Close</button>
+          <div className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-md space-y-4 animate-in fade-in-50">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Before / After Mutation Diff</span>
+              <button onClick={() => setExpandedLogId(null)} className="text-xs hover:underline" style={{ color: 'var(--text-tertiary)' }}>Close</button>
             </div>
-            <p className="text-xs text-zinc-400 font-mono">Record ID: {expandedLogId}</p>
+            <p className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>Record ID: {expandedLogId}</p>
             <DiffViewer
               diffData={[
                 { removed: true, value: '- status: "DRAFT"\n- requiredApprovals: 1' },

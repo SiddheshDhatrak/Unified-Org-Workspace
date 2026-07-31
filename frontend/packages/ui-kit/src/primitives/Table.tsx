@@ -1,7 +1,6 @@
 import React from 'react';
 import { cn } from '../utils';
 import { Button } from './Button';
-import { Loader2 } from 'lucide-react';
 
 interface Column<T> {
   header: string;
@@ -22,43 +21,47 @@ interface TableProps<T> {
   className?: string;
 }
 
+function SkeletonRow({ cols }: { cols: number }) {
+  return (
+    <tr>
+      {Array.from({ length: cols }).map((_, i) => (
+        <td key={i} className="px-4 py-3.5">
+          <div className={cn('h-3 rounded shimmer', i === 0 ? 'w-40' : 'w-20')} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 export function Table<T extends Record<string, any>>({
-  data,
-  columns,
-  isLoading = false,
-  onRowClick,
-  nextCursor,
-  onLoadMore,
-  isLoadingMore = false,
-  emptyMessage = 'No records found.',
-  className,
+  data, columns, isLoading = false, onRowClick, nextCursor, onLoadMore,
+  isLoadingMore = false, emptyMessage = 'No records found.', className,
 }: TableProps<T>) {
   return (
-    <div className={cn('w-full flex flex-col space-y-4', className)}>
-      <div className="w-full overflow-x-auto rounded-xl border border-white/10 bg-zinc-900/60 shadow-xl backdrop-blur-md">
+    <div className={cn('w-full space-y-3', className)}>
+      <div className="w-full overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+        style={{ boxShadow: 'var(--shadow)' }}
+      >
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-white/10 bg-white/5 text-xs font-bold uppercase tracking-wider text-zinc-400">
+            <tr className="border-b border-[var(--border)]">
               {columns.map((col, idx) => (
-                <th key={idx} className={cn('px-4 py-3.5', col.className)}>
+                <th
+                  key={idx}
+                  className={cn('px-4 py-3 text-xs font-medium tracking-wide', col.className)}
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-sm font-medium text-zinc-200">
-            {isLoading && data.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-zinc-500">
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
-                    <span>Loading data...</span>
-                  </div>
-                </td>
-              </tr>
+          <tbody className="divide-y divide-[var(--border-light)] text-sm">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={columns.length} />)
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-zinc-500 italic">
+                <td colSpan={columns.length} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>
                   {emptyMessage}
                 </td>
               </tr>
@@ -66,15 +69,15 @@ export function Table<T extends Record<string, any>>({
               data.map((row, rowIdx) => (
                 <tr
                   key={rowIdx}
-                  onClick={() => onRowClick && onRowClick(row)}
+                  onClick={() => onRowClick?.(row)}
                   className={cn(
-                    'transition-colors duration-150 hover:bg-white/5',
-                    onRowClick && 'cursor-pointer hover:bg-indigo-500/5'
+                    'transition-colors duration-100',
+                    onRowClick && 'cursor-pointer hover:bg-[var(--surface-hover)]'
                   )}
                 >
                   {columns.map((col, colIdx) => (
                     <td key={colIdx} className={cn('px-4 py-3.5 whitespace-nowrap', col.className)}>
-                      {col.render ? col.render(row) : (row[col.accessorKey as keyof T] ?? '-')}
+                      {col.render ? col.render(row) : (row[col.accessorKey as keyof T] ?? '—')}
                     </td>
                   ))}
                 </tr>
@@ -83,13 +86,9 @@ export function Table<T extends Record<string, any>>({
           </tbody>
         </table>
       </div>
-
-      {/* Cursor Pagination Footer (§9.6) */}
       {nextCursor && (
-        <div className="flex justify-center pt-2">
-          <Button variant="secondary" size="sm" onClick={onLoadMore} isLoading={isLoadingMore}>
-            Load More Records
-          </Button>
+        <div className="flex justify-center">
+          <Button variant="secondary" size="sm" onClick={onLoadMore} isLoading={isLoadingMore}>Load more</Button>
         </div>
       )}
     </div>

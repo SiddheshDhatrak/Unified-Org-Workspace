@@ -139,7 +139,13 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   const json = await res.json();
-  return (json.data !== undefined ? json.data : json) as T;
+  if (json.data !== undefined) {
+    if ('nextCursor' in json) {
+      return json as T;
+    }
+    return json.data as T;
+  }
+  return json as T;
 }
 
 // ==========================================

@@ -16,6 +16,9 @@
     "@workspace/hooks": "^1.0.0",
     "@workspace/ui-kit": "^1.0.0",
     "@tanstack/react-query": "^5.28.0",
+    "react-hook-form": "^7.51.0",
+    "@hookform/resolvers": "^3.3.4",
+    "zod": "^3.22.4",
     "lucide-react": "^0.359.0"
   },
   "devDependencies": {

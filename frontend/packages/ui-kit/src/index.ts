@@ -17,3 +17,4 @@ export * from './composed/GuestBanner';
 export * from './composed/NotificationBell';
 export * from './composed/DigestCard';
 export * from './composed/DiffViewer';
+export * from './composed/ThemeProvider';

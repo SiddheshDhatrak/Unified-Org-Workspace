@@ -1,10 +1,28 @@
 'use client';
 import React from 'react';
 import { useTicketDetail, useOrgContext, useUpdateTicketStatus } from '@workspace/hooks';
-import { Button, Badge, Modal, RoleGate, cn } from '@workspace/ui-kit';
+import { Button, Badge, Modal, RoleGate, Textarea, cn } from '@workspace/ui-kit';
 import { tickets } from '@workspace/api-client';
-import { ArrowLeft, Send, Paperclip, Share2, AlertCircle, RefreshCw, Lock } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Share2, AlertTriangle, RefreshCw, CheckCircle2, XCircle, Clock, User } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
+
+function Toast({ message, type, onDismiss }: { message: string; type: 'error' | 'success'; onDismiss: () => void }) {
+  React.useEffect(() => { const t = setTimeout(onDismiss, 4000); return () => clearTimeout(t); }, [onDismiss]);
+  return (
+    <div className={cn(
+      'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-xl text-sm font-medium toast-enter max-w-sm transition-all',
+      type === 'error'
+        ? 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950/80 dark:border-red-900/50 dark:text-red-200'
+        : 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/80 dark:border-emerald-900/50 dark:text-emerald-200'
+    )}>
+      {type === 'error' ? <XCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+      <span className="flex-1">{message}</span>
+      <button onClick={onDismiss} className="opacity-50 hover:opacity-100">✕</button>
+    </div>
+  );
+}
+
+const STATUS_FLOW = ['OPEN', 'IN_PROGRESS', 'BLOCKED', 'RESOLVED', 'CLOSED'];
 
 export default function TicketDetailPage() {
   const params = useParams();
@@ -12,30 +30,28 @@ export default function TicketDetailPage() {
   const { orgId, isGuestView } = useOrgContext();
   const router = useRouter();
 
-  const { data: ticket, isLoading, refetch } = useTicketDetail(orgId, ticketId);
+  const { data: ticket, isLoading, error, refetch } = useTicketDetail(orgId, ticketId);
+  const updateStatus = useUpdateTicketStatus(orgId);
   const [comments, setComments] = React.useState<any[]>([]);
   const [newComment, setNewComment] = React.useState('');
   const [isPosting, setIsPosting] = React.useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
-
-  // Simulated S3 Signed-URL Attachment Uploader with 2x retry budget (§10.4)
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [retryCount, setRetryCount] = React.useState(0);
+  const [toast, setToast] = React.useState<{ message: string; type: 'error' | 'success' } | null>(null);
+
+  const showToast = (message: string, type: 'error' | 'success') => setToast({ message, type });
 
   const fetchComments = React.useCallback(async () => {
     if (!orgId || !ticketId) return;
     try {
       const list = await tickets.listComments(orgId, ticketId);
       setComments(list || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch { }
   }, [orgId, ticketId]);
 
-  React.useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
+  React.useEffect(() => { fetchComments(); }, [fetchComments]);
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,10 +62,21 @@ export default function TicketDetailPage() {
       setNewComment('');
       fetchComments();
     } catch (err: any) {
-      alert(err.message || 'Error posting comment');
+      showToast(err.message || 'Error posting comment', 'error');
     } finally {
       setIsPosting(false);
     }
+  };
+
+  const handleStatusChange = (newStatus: string) => {
+    if (!ticket) return;
+    updateStatus.mutate(
+      { ticketId: ticket.id, status: newStatus as any, version: ticket.version },
+      {
+        onSuccess: () => { refetch(); showToast(`Status updated to ${newStatus}`, 'success'); },
+        onError: (err: any) => showToast(err.message || 'Status update failed', 'error'),
+      }
+    );
   };
 
   const handleSimulatedUpload = () => {
@@ -60,208 +87,252 @@ export default function TicketDetailPage() {
         if (prev === null) return null;
         if (prev >= 80 && retryCount < 1 && Math.random() > 0.5) {
           clearInterval(timer);
-          setUploadError('Network drop on S3 chunked upload (§10.4). Retrying automatically...');
-          setTimeout(() => {
-            setRetryCount((c) => c + 1);
-            setUploadError(null);
-            setUploadProgress(100);
-          }, 1500);
+          setUploadError('Network drop detected. Retrying automatically...');
+          setTimeout(() => { setRetryCount(c => c + 1); setUploadError(null); setUploadProgress(100); }, 1500);
           return prev;
         }
-        if (prev >= 100) {
-          clearInterval(timer);
-          setTimeout(() => setUploadProgress(null), 1000);
-          return 100;
-        }
+        if (prev >= 100) { clearInterval(timer); setTimeout(() => setUploadProgress(null), 800); return 100; }
         return prev + 25;
       });
     }, 400);
   };
 
-  if (isLoading || !ticket) {
+  if (error) {
     return (
-      <div className="w-full h-96 rounded-3xl bg-zinc-900/40 border border-white/10 animate-pulse flex items-center justify-center text-zinc-500">
-        Loading ticket inspection...
+      <div className="w-full h-80 rounded-xl border flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+        <AlertTriangle className="w-8 h-8 text-red-500" />
+        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{(error as any).message || 'Could not load ticket'}</p>
+        <Button variant="secondary" size="sm" onClick={() => router.push('/tickets')}>← Back to tickets</Button>
       </div>
     );
   }
 
+  if (isLoading || !ticket) {
+    return (
+      <div className="space-y-6 page-enter">
+        <div className="h-8 w-32 rounded-lg shimmer" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="h-48 rounded-xl shimmer" />
+            <div className="h-64 rounded-xl shimmer" />
+          </div>
+          <div className="h-96 rounded-xl shimmer" />
+        </div>
+      </div>
+    );
+  }
+
+  const currentStatusIndex = STATUS_FLOW.indexOf(ticket.status);
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in-50">
-      {/* Top Nav Back button & Actions */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-6xl mx-auto space-y-6 page-enter pb-10">
+      {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <button
           onClick={() => router.push('/tickets')}
-          className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-medium hover:underline transition-all"
+          style={{ color: 'var(--text-secondary)' }}
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Ticket Board</span>
+          <ArrowLeft className="w-4 h-4" /> Back to tickets
         </button>
 
         <div className="flex items-center gap-3">
           {!isGuestView && (
             <RoleGate permission="crossorg:share">
               <Button variant="secondary" size="sm" onClick={() => setIsShareModalOpen(true)}>
-                <Share2 className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Share with Partner Org (§10.6)</span>
+                <Share2 className="w-4 h-4" style={{ color: 'var(--accent)' }} /> Share
               </Button>
             </RoleGate>
           )}
-
           {!isGuestView && (
             <RoleGate permission="ticket:delete">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={async () => {
-                  if (confirm('Delete ticket permanently?')) {
-                    await tickets.delete(orgId, ticket.id);
-                    router.push('/tickets');
-                  }
-                }}
-              >
-                Delete Ticket
-              </Button>
+              <Button variant="destructive" size="sm" onClick={async () => {
+                if (confirm('Permanently delete this ticket?')) {
+                  await tickets.delete(orgId, ticket.id);
+                  router.push('/tickets');
+                }
+              }}>Delete</Button>
             </RoleGate>
           )}
         </div>
       </div>
 
-      {/* Ticket Header & Details */}
-      <div className="rounded-3xl border border-white/10 bg-zinc-900/60 p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 mb-5">
               <Badge status={ticket.status} />
               <Badge status={ticket.priority} />
-              <span className="text-xs font-mono text-zinc-500">Version #{ticket.version} (§26.2)</span>
               {ticket.shares && ticket.shares.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-bold border border-cyan-500/30">
-                  Shared with Partner Org
-                </span>
+                <span className="px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400 text-xs font-medium">Shared</span>
+              )}
+              <span className="text-[11px] font-medium ml-auto" style={{ color: 'var(--text-tertiary)' }}>v{ticket.version}</span>
+            </div>
+
+            <h1 className="text-2xl font-semibold leading-snug mb-5" style={{ color: 'var(--text-primary)' }}>{ticket.title}</h1>
+
+            <div className="space-y-2 mb-6">
+              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Description</p>
+              <div className="p-4 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-sm leading-relaxed whitespace-pre-wrap font-mono" style={{ color: 'var(--text-secondary)' }}>
+                {ticket.description}
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <Paperclip className="w-4 h-4" style={{ color: 'var(--accent)' }} /> Attachments
+                </div>
+                <Button variant="secondary" size="sm" onClick={handleSimulatedUpload} disabled={uploadProgress !== null}>Upload File</Button>
+              </div>
+              {uploadError && (
+                <p className="text-sm text-red-500 flex items-center gap-2 mb-3">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> {uploadError}
+                </p>
+              )}
+              {uploadProgress !== null && (
+                <div className="space-y-1.5 mt-2">
+                  <div className="flex justify-between text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                    <div className="h-full bg-[var(--accent)] transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                </div>
               )}
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white">{ticket.title}</h1>
           </div>
 
-          <div className="text-left sm:text-right text-xs space-y-1 bg-zinc-950 p-3.5 rounded-2xl border border-white/10 flex-shrink-0">
-            <p className="text-zinc-400">Created by <span className="font-bold text-zinc-200">{ticket.creator?.fullName || 'Admin'}</span></p>
-            <p className="text-zinc-400">Assignee: <span className="font-bold text-indigo-400">{ticket.assignee?.fullName || 'Unassigned'}</span></p>
-          </div>
-        </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm space-y-6">
+            <h2 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              Activity & Comments
+              <span className="px-2 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{comments.length}</span>
+            </h2>
 
-        {/* Rich Markdown Description */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Description</h3>
-          <div className="p-5 rounded-2xl bg-zinc-950/90 border border-white/10 text-sm text-zinc-200 leading-relaxed font-mono whitespace-pre-wrap shadow-inner">
-            {ticket.description}
-          </div>
-        </div>
+            <div className="space-y-5">
+              {comments.length === 0 ? (
+                <p className="text-sm italic py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>No comments yet.</p>
+              ) : (
+                comments.map((c: any) => (
+                  <div key={c.id} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-tertiary)] flex items-center justify-center text-xs font-medium shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                      {c.author?.fullName?.[0] || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{c.author?.fullName || 'User'}</span>
+                        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                          {new Date(c.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="text-sm bg-[var(--bg)] p-3 rounded-lg border border-[var(--border)] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        {c.body}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
 
-        {/* Attachment Uploader Simulator (§10.4) */}
-        <div className="pt-4 border-t border-white/10 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Paperclip className="w-4 h-4 text-indigo-400" />
-              <span>Signed-URL Attachments (§10.3 / §10.4)</span>
-            </h3>
-            <Button variant="secondary" size="sm" onClick={handleSimulatedUpload} disabled={uploadProgress !== null}>
-              Upload Log Snapshot (.har)
-            </Button>
-          </div>
-
-          {uploadError && (
-            <p className="text-xs text-amber-400 font-mono flex items-center gap-1.5 animate-pulse">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span>{uploadError}</span>
-            </p>
-          )}
-
-          {uploadProgress !== null && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono text-zinc-400">
-                <span>Uploading directly to S3 Bucket...</span>
-                <span>{uploadProgress}%</span>
+            <form onSubmit={handlePostComment} className="flex gap-3 pt-4 border-t border-[var(--border)]">
+              <div className="flex-1">
+                 <Textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder={isGuestView ? 'Add a guest comment...' : 'Write a comment...'}
+                 />
               </div>
-              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+              <Button type="submit" variant="primary" size="md" className="self-end" isLoading={isPosting}>
+                <Send className="w-4 h-4" /> Post
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Details</h3>
+            <div className="space-y-3.5 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><User className="w-4 h-4" /> Creator</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{ticket.creator?.fullName || 'Admin'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><User className="w-4 h-4" /> Assignee</span>
+                <span className="font-medium" style={{ color: 'var(--accent-text)' }}>{ticket.assignee?.fullName || 'Unassigned'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><Clock className="w-4 h-4" /> Created</span>
+                <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{new Date(ticket.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Comment Thread */}
-      <div className="rounded-3xl border border-white/10 bg-zinc-900/40 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-6">
-        <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-          <span>Activity & Comments ({comments.length})</span>
-        </h2>
-
-        <div className="space-y-4 divide-y divide-white/5">
-          {comments.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic py-4">No comments posted yet. Start the collaboration below.</p>
-          ) : (
-            comments.map((c: any) => (
-              <div key={c.id} className="pt-4 flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0 shadow-md">
-                  {c.author?.fullName ? c.author.fullName.charAt(0) : 'U'}
-                </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-zinc-200">{c.author?.fullName || 'User'}</span>
-                    <span className="text-[10px] font-mono text-zinc-500">{new Date(c.createdAt).toLocaleTimeString()}</span>
-                  </div>
-                  <p className="text-sm text-zinc-300 bg-zinc-950 p-3.5 rounded-2xl border border-white/10 leading-relaxed">
-                    {c.body}
-                  </p>
+          {!isGuestView && (
+            <RoleGate permission="ticket:update">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Status</h3>
+                <div className="space-y-2">
+                  {STATUS_FLOW.map((status, idx) => {
+                    const isCurrent = ticket.status === status;
+                    const isPast = idx < currentStatusIndex;
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => !isCurrent && handleStatusChange(status)}
+                        disabled={isCurrent || updateStatus.isPending}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left border',
+                          isCurrent
+                            ? 'bg-[var(--accent-light)] border-[var(--accent)]'
+                            : isPast
+                            ? 'bg-[var(--bg-secondary)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                            : 'bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                        )}
+                        style={{ color: isCurrent ? 'var(--accent-text)' : 'var(--text-primary)' }}
+                      >
+                        <div className={cn('w-2 h-2 rounded-full shrink-0', isCurrent ? 'bg-[var(--accent)]' : isPast ? 'bg-emerald-500' : 'bg-[var(--border)]')} />
+                        {status.replace(/_/g, ' ')}
+                        {isCurrent && <span className="ml-auto text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Current</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            ))
+            </RoleGate>
           )}
         </div>
-
-        {/* Comment Composer */}
-        <form onSubmit={handlePostComment} className="pt-4 border-t border-white/10 flex gap-3">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder={isGuestView ? "Add a guest review comment..." : "Type a reply or update note..."}
-            className="flex-1 h-24 p-3 rounded-2xl bg-zinc-950 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/60 transition-all"
-          />
-          <Button type="submit" variant="primary" className="h-auto px-6 rounded-2xl shadow-lg shadow-indigo-500/25" isLoading={isPosting}>
-            <Send className="w-4 h-4" />
-            <span>Post</span>
-          </Button>
-        </form>
       </div>
 
-      {/* Cross-Org Partner Share Modal (§10.6) */}
-      <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Share with Partner Organization (§13.1)">
-        <div className="space-y-4">
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            Grant read and comment access on this ticket to connected partner organizations (e.g. Globex Corporation). Partner guests will enter the restricted Guest View Mode (§13.4).
+      <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Share with Partner">
+        <div className="space-y-4 mt-2">
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            Grant read and comment access to partner organizations. Partners enter Guest View mode.
           </p>
-          <div className="p-3.5 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-between">
+          <div className="p-4 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-white">Globex Corporation</p>
-              <p className="text-xs font-mono text-zinc-500">Slug: globex (Approved Connection)</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Globex Corporation</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Approved Connection</p>
             </div>
             <Button
-              variant="primary"
-              size="sm"
+              variant="primary" size="sm"
               onClick={async () => {
                 try {
-                  // Globex test org id from seed or mock call
                   await tickets.share(orgId, ticket.id, 'org-globex');
                   setIsShareModalOpen(false);
                   refetch();
+                  showToast('Ticket shared successfully!', 'success');
                 } catch (e: any) {
-                  alert(e.message || 'Shared successfully!');
+                  showToast(e.message || 'Share failed', 'error');
                   setIsShareModalOpen(false);
                 }
               }}
             >
-              Grant Access
+              Share
             </Button>
           </div>
         </div>

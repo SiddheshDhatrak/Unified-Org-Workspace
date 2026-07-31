@@ -17,25 +17,35 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, descriptio
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-200" />
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]"
+        />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-6 shadow-2xl backdrop-blur-xl focus:outline-none transition-all duration-200',
+            'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
+            'rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-xl',
+            'focus:outline-none transition-all',
             className
           )}
         >
-          <div className="flex items-center justify-between pb-4 border-b border-white/10">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <DialogPrimitive.Title className="text-lg font-bold text-white">{title}</DialogPrimitive.Title>
-              {description && <DialogPrimitive.Description className="text-xs text-zinc-400 mt-1">{description}</DialogPrimitive.Description>}
+              <DialogPrimitive.Title className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {title}
+              </DialogPrimitive.Title>
+              {description && (
+                <DialogPrimitive.Description className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  {description}
+                </DialogPrimitive.Description>
+              )}
             </div>
             <DialogPrimitive.Close asChild>
-              <button className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white focus:outline-none">
-                <X className="w-5 h-5" />
+              <button className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors" style={{ color: 'var(--text-tertiary)' }}>
+                <X className="w-4 h-4" />
               </button>
             </DialogPrimitive.Close>
           </div>
-          <div className="mt-4">{children}</div>
+          <div>{children}</div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -53,33 +63,16 @@ export interface ConfirmDialogProps {
   isLoading?: boolean;
 }
 
-/**
- * Standardized destructive-action confirmation dialog (§5.2 / §19.2)
- */
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  title,
-  message,
-  confirmLabel = 'Confirm',
-  variant = 'destructive',
-  isLoading = false,
+  isOpen, onClose, onConfirm, title, message, confirmLabel = 'Confirm', variant = 'destructive', isLoading = false,
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-4">
-        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
-          <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
-          <p>{message}</p>
-        </div>
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button variant={variant} onClick={onConfirm} isLoading={isLoading}>
-            {confirmLabel}
-          </Button>
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{message}</p>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={isLoading}>Cancel</Button>
+          <Button variant={variant} size="sm" onClick={onConfirm} isLoading={isLoading}>{confirmLabel}</Button>
         </div>
       </div>
     </Modal>

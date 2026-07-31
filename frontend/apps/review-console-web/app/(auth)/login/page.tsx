@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { auth, ApiError } from '@workspace/api-client';
 import { Button, Input, cn } from '@workspace/ui-kit';
-import { ShieldCheck, Lock, ArrowRight, LifeBuoy, Users, Zap, Globe } from 'lucide-react';
+import { ShieldCheck, Lock, ArrowRight, GitPullRequest, Code2, GitMerge, FileCheck2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
 const loginSchema = z.object({
@@ -21,15 +21,14 @@ const QUICK_LOGINS = [
 ];
 
 const FEATURES = [
-  { icon: LifeBuoy, label: 'Smart Ticket Management', desc: 'Unified queue with AI triage and priority scoring' },
-  { icon: Users, label: 'Cross-Org Collaboration', desc: 'Share tickets with partner organizations securely' },
-  { icon: Zap, label: 'Real-time Notifications', desc: 'Instant alerts on status changes and assignments' },
-  { icon: Globe, label: 'Multi-Org Workspace', desc: 'Manage multiple organizations from a single account' },
+  { icon: FileCheck2, label: 'Intelligent PR Review', desc: 'Accelerated peer reviews with multi-approval workflows' },
+  { icon: Code2, label: 'Version Diff Inspector', desc: 'Granular code comparison with inline annotations' },
+  { icon: GitMerge, label: 'Strict Merge Gates', desc: 'Enforce organizational policies before merging' },
 ];
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const from = searchParams?.get('from') || '/tickets';
+  const from = searchParams?.get('from') || '/prs';
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -62,20 +61,20 @@ function LoginContent() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
             <div className="w-10 h-10 rounded-xl bg-[var(--accent)] flex items-center justify-center shadow-sm">
-              <LifeBuoy className="w-5 h-5 text-white" />
+              <GitPullRequest className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[var(--text-primary)]">Support Hub</p>
+              <p className="text-sm font-bold text-[var(--text-primary)]">Review Console</p>
               <p className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-widest">Unified Org Workspace</p>
             </div>
           </div>
 
           <h2 className="text-3xl font-bold leading-tight mb-3 text-[var(--text-primary)]">
-            Enterprise Support,<br />
-            <span className="text-[var(--accent)]">Unified.</span>
+            Code Review,<br />
+            <span className="text-[var(--accent)]">Elevated.</span>
           </h2>
           <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-10">
-            Manage tickets, collaborate across organizations, and resolve issues faster with AI-powered insights.
+            Secure, efficient, and scalable pull request management for modern engineering teams.
           </p>
 
           <div className="space-y-6">
@@ -96,7 +95,7 @@ function LoginContent() {
         <div className="relative z-10 mt-12">
           <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)]">
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              <span className="text-[var(--text-primary)] font-semibold">Secured by RS256 JWT + HttpOnly cookies</span> with 15-min access tokens, 30-day rotating refresh tokens, and replay attack detection.
+              <span className="text-[var(--text-primary)] font-semibold">Strict Governance</span> - Immutable audit trails and policy-driven merge conditions.
             </p>
           </div>
         </div>
@@ -108,9 +107,9 @@ function LoginContent() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-xl bg-[var(--accent)] flex items-center justify-center">
-              <LifeBuoy className="w-4.5 h-4.5 text-white" />
+              <GitPullRequest className="w-4.5 h-4.5 text-white" />
             </div>
-            <p className="text-base font-bold text-[var(--text-primary)]">Support Hub</p>
+            <p className="text-base font-bold text-[var(--text-primary)]">Review Console</p>
           </div>
 
           <div>
@@ -174,14 +173,6 @@ function LoginContent() {
             <p className="text-[10px] text-[var(--text-tertiary)] text-center">All use password: <code className="text-[var(--text-primary)] font-mono">Password123!</code></p>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-[var(--border)] text-center">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Don&apos;t have an account?{' '}
-              <a href="/register" className="font-semibold text-[var(--accent)] hover:underline">
-                Register your organization
-              </a>
-            </p>
-          </div>
         </div>
       </div>
     </div>

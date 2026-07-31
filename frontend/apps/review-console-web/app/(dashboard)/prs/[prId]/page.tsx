@@ -1,10 +1,26 @@
 'use client';
 import React from 'react';
 import { usePRDetail, useSession, useOrgContext } from '@workspace/hooks';
-import { Button, Badge, Modal, DiffViewer, RoleGate, cn } from '@workspace/ui-kit';
+import { Button, Badge, Modal, DiffViewer, RoleGate, Textarea, cn } from '@workspace/ui-kit';
 import { prs } from '@workspace/api-client';
-import { ArrowLeft, Send, CheckCircle2, XCircle, ShieldAlert, AlertTriangle, FileDiff } from 'lucide-react';
+import { ArrowLeft, Send, CheckCircle2, XCircle, ShieldAlert, AlertTriangle, FileDiff, User, GitMerge, Clock } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
+
+function Toast({ message, type, onDismiss }: { message: string; type: 'error' | 'success'; onDismiss: () => void }) {
+  React.useEffect(() => { const t = setTimeout(onDismiss, 4000); return () => clearTimeout(t); }, [onDismiss]);
+  return (
+    <div className={cn(
+      'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-xl text-sm font-medium toast-enter max-w-sm transition-all',
+      type === 'error'
+        ? 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950/80 dark:border-red-900/50 dark:text-red-200'
+        : 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/80 dark:border-emerald-900/50 dark:text-emerald-200'
+    )}>
+      {type === 'error' ? <XCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+      <span className="flex-1">{message}</span>
+      <button onClick={onDismiss} className="opacity-50 hover:opacity-100">✕</button>
+    </div>
+  );
+}
 
 export default function PRDetailPage() {
   const params = useParams();
@@ -13,37 +29,35 @@ export default function PRDetailPage() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const { data: pr, isLoading, refetch } = usePRDetail(orgId, prId);
+  const { data: pr, isLoading, error, refetch } = usePRDetail(orgId, prId);
   const [comments, setComments] = React.useState<any[]>([]);
   const [newComment, setNewComment] = React.useState('');
   const [isPosting, setIsPosting] = React.useState(false);
-
-  // Review Verdict state
   const [isRejectModalOpen, setIsRejectModalOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState('');
   const [isReviewing, setIsReviewing] = React.useState(false);
+  const [toast, setToast] = React.useState<{ message: string; type: 'error' | 'success' } | null>(null);
+
+  const showToast = (message: string, type: 'error' | 'success') => setToast({ message, type });
 
   const fetchComments = React.useCallback(async () => {
     if (!orgId || !prId) return;
     try {
       const list = await prs.listComments(orgId, prId);
       setComments(list || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch { }
   }, [orgId, prId]);
 
-  React.useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
+  React.useEffect(() => { fetchComments(); }, [fetchComments]);
 
   const handleApprove = async () => {
     setIsReviewing(true);
     try {
       await prs.review(orgId, prId, 'APPROVED');
       refetch();
+      showToast('Pull Request approved!', 'success');
     } catch (err: any) {
-      alert(`Review Error (§11.5 / §26 Edge Case 4): ${err.message}`);
+      showToast(err.message || 'Review failed', 'error');
     } finally {
       setIsReviewing(false);
     }
@@ -52,7 +66,7 @@ export default function PRDetailPage() {
   const handleRequestChanges = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectReason.trim()) {
-      alert('Mandatory feedback note required when requesting changes (§11.4 / §26 Edge Case 4)');
+      showToast('Mandatory feedback note required when requesting changes', 'error');
       return;
     }
     setIsReviewing(true);
@@ -61,8 +75,9 @@ export default function PRDetailPage() {
       setIsRejectModalOpen(false);
       setRejectReason('');
       refetch();
+      showToast('Changes requested successfully', 'success');
     } catch (err: any) {
-      alert(`Review Error: ${err.message}`);
+      showToast(err.message || 'Review submission failed', 'error');
     } finally {
       setIsReviewing(false);
     }
@@ -73,171 +88,287 @@ export default function PRDetailPage() {
     if (!newComment.trim()) return;
     setIsPosting(true);
     try {
-      await prs.createComment(orgId, prId, newComment.trim());
+      await prs.createComment(orgId, prId, { body: newComment.trim() });
       setNewComment('');
       fetchComments();
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message || 'Comment post failed', 'error');
     } finally {
       setIsPosting(false);
     }
   };
 
+  if (error) {
+    return (
+      <div className="w-full h-80 rounded-xl border flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <AlertTriangle className="w-8 h-8 text-red-500" />
+        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{(error as any).message || 'Could not load PR'}</p>
+        <Button variant="secondary" size="sm" onClick={() => router.push('/prs')}>← Back to PRs</Button>
+      </div>
+    );
+  }
+
   if (isLoading || !pr) {
     return (
-      <div className="w-full h-96 rounded-3xl bg-zinc-900/40 border border-white/10 animate-pulse flex items-center justify-center text-zinc-500">
-        Loading PR Review Engine...
+      <div className="space-y-6 page-enter">
+        <div className="h-8 w-32 rounded-lg shimmer" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="h-48 rounded-xl shimmer" />
+            <div className="h-48 rounded-xl shimmer" />
+          </div>
+          <div className="h-96 rounded-xl shimmer" />
+        </div>
       </div>
     );
   }
 
   const isAuthor = session?.user.id === pr.authorId;
-  const approvedCount = (pr.reviews || []).filter((r) => r.verdict === 'APPROVED').length;
+  const approvedCount = (pr.reviewers || []).filter(r => r.decision === 'APPROVED').length;
   const required = pr.requiredApprovals || 1;
+  const approvalPct = Math.min((approvedCount / required) * 100, 100);
+  const isApproved = approvedCount >= required;
 
-  // Mock code diff representing PR modifications (§12.2)
   const mockDiffData = [
     { value: '@@ -12,6 +12,8 @@ class OrganizationController {\n  async createInvite(req: Request, res: Response) {\n    const { email, role } = req.body;' },
     { removed: true, value: '-    const invite = await this.service.sendInvite(email, role);\n-    return res.json({ status: "ok" });' },
-    { added: true, value: '+    // Strict tenant boundary checking per §5.4\n+    const invite = await this.service.sendInvite(req.orgContext!.orgId!, email, role);\n+    return res.status(201).json({ status: "ok", invite });' },
+    { added: true, value: '+    // Strict tenant boundary checking\n+    const invite = await this.service.sendInvite(req.orgContext!.orgId!, email, role);\n+    return res.status(201).json({ status: "ok", invite });' },
     { value: '  }\n}' },
   ];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in-50">
-      <div className="flex items-center justify-between">
-        <button onClick={() => router.push('/prs')} className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to PR Board</span>
+    <div className="max-w-6xl mx-auto space-y-6 page-enter pb-10">
+      {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <button
+          onClick={() => router.push('/prs')}
+          className="inline-flex items-center gap-2 text-sm font-medium hover:underline transition-all"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to PR Board
         </button>
 
-        {/* Floating Review Action Toolbar (§11.4 / §11.5) */}
         {!isGuestView && (
           <RoleGate permission="pr:review">
             {isAuthor ? (
-              <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1.5">
-                <ShieldAlert className="w-4 h-4" />
-                <span>Author cannot approve own PR (§11.5)</span>
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/25 text-xs font-semibold">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Author cannot approve own PR
               </span>
             ) : pr.status !== 'MERGED' ? (
               <div className="flex items-center gap-3">
-                <Button variant="secondary" size="sm" onClick={() => setIsRejectModalOpen(true)} disabled={isReviewing} className="border-rose-500/30 hover:bg-rose-500/20 text-rose-300">
-                  <XCircle className="w-4 h-4 text-rose-400" />
-                  <span>Request Changes (§11.4)</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsRejectModalOpen(true)}
+                  disabled={isReviewing}
+                >
+                  <XCircle className="w-4 h-4 text-red-500" />
+                  Request Changes
                 </Button>
-                <Button variant="primary" size="sm" onClick={handleApprove} isLoading={isReviewing} className="bg-gradient-to-r from-emerald-600 to-emerald-500 border-emerald-400/30 shadow-emerald-500/20">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleApprove}
+                  isLoading={isReviewing}
+                >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Approve Pull Request</span>
+                  Approve
                 </Button>
               </div>
-            ) : null}
+            ) : (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/25 text-xs font-semibold">
+                <GitMerge className="w-3.5 h-3.5" />
+                Merged
+              </span>
+            )}
           </RoleGate>
         )}
       </div>
 
-      {/* PR Title & Status Header */}
-      <div className="rounded-3xl border border-white/10 bg-zinc-900/60 p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3 mb-5">
               <Badge status={pr.status} />
-              <span className="px-3 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs border border-indigo-500/30">
-                {approvedCount} of {required} Approvals (§11.3)
+              <span className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border',
+                isApproved ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25'
+              )}>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {approvedCount}/{required} Approvals
               </span>
-              <span className="text-xs font-mono text-zinc-500">Version #{pr.version}</span>
+              <span className="text-[11px] font-medium ml-auto" style={{ color: 'var(--text-tertiary)' }}>v{pr._count?.versions || 1}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white">{pr.title}</h1>
+            
+            <h1 className="text-2xl font-semibold leading-snug mb-5" style={{ color: 'var(--text-primary)' }}>{pr.title}</h1>
+
+            <div className="space-y-2 mb-6">
+              <div className="w-full h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-700', isApproved ? 'bg-emerald-500' : 'bg-[var(--accent)]')}
+                  style={{ width: `${approvalPct}%` }}
+                />
+              </div>
+              <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {isApproved ? 'Ready to merge — all required approvals received' : `Awaiting ${required - approvedCount} more approval${required - approvedCount !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Description</p>
+              <div className="p-4 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-sm leading-relaxed whitespace-pre-wrap font-mono" style={{ color: 'var(--text-secondary)' }}>
+                {pr.description || 'No description provided.'}
+              </div>
+            </div>
           </div>
 
-          <div className="text-left sm:text-right text-xs space-y-1 bg-zinc-950 p-3.5 rounded-2xl border border-white/10 flex-shrink-0">
-            <p className="text-zinc-400">Author: <span className="font-bold text-purple-400">{pr.author?.fullName || 'Developer'}</span></p>
-            <p className="text-zinc-500">Target: <span className="font-mono text-cyan-400">main</span> ← <span className="font-mono text-emerald-400">feature/auth-pool</span></p>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <FileDiff className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                Version Diff Inspector
+              </h2>
+              <span className="text-[10px] font-mono px-2 py-1 rounded bg-[var(--bg-tertiary)]" style={{ color: 'var(--text-secondary)' }}>
+                commit #a8f3b21
+              </span>
+            </div>
+            <DiffViewer diffData={mockDiffData} />
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Description & Context</h3>
-          <div className="p-5 rounded-2xl bg-zinc-950/90 border border-white/10 text-sm text-zinc-200 leading-relaxed font-mono whitespace-pre-wrap">
-            {pr.description}
-          </div>
-        </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm space-y-6">
+            <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              Review Comments
+              <span className="px-2 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{comments.length}</span>
+            </h2>
 
-        {/* Immutable Version Diff Inspection (§12.1 / §12.2) */}
-        <div className="space-y-3 pt-4 border-t border-white/10">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-              <FileDiff className="w-4 h-4 text-purple-400" />
-              <span>Immutable Version Diff Inspector (§12.2)</span>
-            </h3>
-            <span className="text-[11px] font-mono bg-zinc-800 px-2.5 py-1 rounded-md text-zinc-400">
-              Viewing commit hash #a8f3b21
-            </span>
-          </div>
-          <DiffViewer diffData={mockDiffData} />
-        </div>
-      </div>
-
-      {/* Comment Thread */}
-      <div className="rounded-3xl border border-white/10 bg-zinc-900/40 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-6">
-        <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-          <span>Review Activity & Comments ({comments.length})</span>
-        </h2>
-
-        <div className="space-y-4 divide-y divide-white/5">
-          {comments.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic py-4">No comments posted yet. Leave review feedback below.</p>
-          ) : (
-            comments.map((c: any) => (
-              <div key={c.id} className="pt-4 flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                  {c.author?.fullName ? c.author.fullName.charAt(0) : 'U'}
-                </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-zinc-200">{c.author?.fullName || 'Reviewer'}</span>
-                    <span className="text-[10px] font-mono text-zinc-500">{new Date(c.createdAt).toLocaleTimeString()}</span>
+            <div className="space-y-5">
+              {comments.length === 0 ? (
+                <p className="text-sm italic py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>No review comments yet.</p>
+              ) : (
+                comments.map((c: any) => (
+                  <div key={c.id} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--bg-tertiary)] flex items-center justify-center text-xs font-medium shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                      {c.author?.fullName?.[0] || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{c.author?.fullName || 'Reviewer'}</span>
+                        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                          {new Date(c.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="text-sm bg-[var(--bg)] p-3 rounded-lg border border-[var(--border)] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        {c.body}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-zinc-300 bg-zinc-950 p-3.5 rounded-2xl border border-white/10 leading-relaxed">{c.body}</p>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handlePostComment} className="flex gap-3 pt-4 border-t border-[var(--border)]">
+              <div className="flex-1">
+                 <Textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder={isGuestView ? 'Add a guest feedback note...' : 'Leave a review comment...'}
+                 />
+              </div>
+              <Button type="submit" variant="primary" size="md" className="self-end" isLoading={isPosting}>
+                <Send className="w-4 h-4" /> Post
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Details</h3>
+            <div className="space-y-3.5 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><User className="w-4 h-4" /> Author</span>
+                <span className="font-medium" style={{ color: 'var(--accent-text)' }}>{pr.author?.fullName || 'Developer'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}><Clock className="w-4 h-4" /> Created</span>
+                <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{new Date(pr.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div className="pt-3 mt-1 border-t border-[var(--border-light)] text-xs flex items-center justify-between">
+                <span style={{ color: 'var(--text-secondary)' }}>Target Branch: </span>
+                <div>
+                   <code className="text-[10px] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-secondary)' }}>main</code>
+                   <span className="mx-1" style={{ color: 'var(--text-tertiary)' }}>←</span>
+                   <code className="text-[10px] bg-[var(--accent-light)] px-1.5 py-0.5 rounded" style={{ color: 'var(--accent-text)' }}>feature/auth</code>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          </div>
 
-        <form onSubmit={handlePostComment} className="pt-4 border-t border-white/10 flex gap-3">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder={isGuestView ? "Add a guest feedback note..." : "Leave review comment..."}
-            className="flex-1 h-24 p-3 rounded-2xl bg-zinc-950 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-purple-500/60"
-          />
-          <Button type="submit" variant="primary" className="h-auto px-6 rounded-2xl bg-purple-600 hover:bg-purple-500" isLoading={isPosting}>
-            <Send className="w-4 h-4" />
-            <span>Post Comment</span>
-          </Button>
-        </form>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Reviewers</h3>
+            {!pr.reviewers || pr.reviewers.length === 0 ? (
+              <p className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>No reviewers assigned.</p>
+            ) : (
+              <div className="space-y-3">
+                {pr.reviewers.map((reviewer: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded bg-[var(--bg-tertiary)] flex items-center justify-center text-[10px] font-semibold shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                        {reviewer.user?.fullName?.[0] || reviewer.fullName?.[0] || 'R'}
+                      </div>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                        {reviewer.user?.fullName || reviewer.fullName || 'Reviewer'}
+                      </span>
+                    </div>
+                    {reviewer.decision === 'APPROVED' ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approved
+                      </span>
+                    ) : reviewer.decision === 'CHANGES_REQUESTED' ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 dark:text-red-400">
+                        <XCircle className="w-3.5 h-3.5" /> Changes
+                      </span>
+                    ) : (
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Pending</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-[var(--border)] space-y-2">
+              <div className="w-full h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-700', isApproved ? 'bg-emerald-500' : 'bg-[var(--accent)]')}
+                  style={{ width: `${approvalPct}%` }}
+                />
+              </div>
+              <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{approvedCount} of {required} approvals</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Request Changes Modal (§11.4 / §26) */}
-      <Modal isOpen={isRejectModalOpen} onClose={() => setIsRejectModalOpen(false)} title="Request Changes (§11.4)">
-        <form onSubmit={handleRequestChanges} className="space-y-4">
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
-            <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
-            <p>Requesting changes transitions this PR to REJECTED and blocks merge until issues are addressed. Mandatory reason note required per §26 Edge Case 4.</p>
+      <Modal isOpen={isRejectModalOpen} onClose={() => setIsRejectModalOpen(false)} title="Request Changes">
+        <form onSubmit={handleRequestChanges} className="space-y-4 mt-2">
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900/50 text-red-800 dark:text-red-300 text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <p>This will transition the PR to REJECTED and block merging. A mandatory reason is required.</p>
           </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-zinc-300 uppercase">Reason for Rejection / Requested Changes</label>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Explain required code fixes or failing security checks..."
-              className="w-full h-28 p-3 rounded-xl bg-zinc-900 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-rose-500"
-              required
-            />
-          </div>
+          <Textarea
+             label="Feedback / Reason"
+             value={rejectReason}
+             onChange={(e) => setRejectReason(e.target.value)}
+             required
+             placeholder="Explain what needs to be fixed..."
+          />
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setIsRejectModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="destructive" isLoading={isReviewing}>Submit Requested Changes</Button>
+            <Button type="button" variant="ghost" onClick={() => setIsRejectModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="destructive" isLoading={isReviewing}>Submit Feedback</Button>
           </div>
         </form>
       </Modal>

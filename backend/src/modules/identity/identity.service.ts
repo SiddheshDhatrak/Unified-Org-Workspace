@@ -455,4 +455,38 @@ export class IdentityService {
 
     return { accessToken, activeOrg };
   }
+
+  async getMe(userId: string, activeOrgId?: string) {
+    const user = await this.repo.findUserById(userId);
+    if (!user) throw new AuthError('User not found');
+
+    const memberships = await this.repo.getActiveMemberships(userId);
+    let activeOrg: any = undefined;
+
+    if (activeOrgId) {
+      const activeMem = memberships.find((m) => m.orgId === activeOrgId);
+      if (activeMem) {
+        activeOrg = {
+          id: activeMem.orgId,
+          name: activeMem.org.name,
+          slug: activeMem.org.slug,
+          role: activeMem.orgRole,
+          appRoles: (activeMem.appRoles as any) || {},
+        };
+      }
+    }
+
+    const availableOrgs = memberships.map((m) => ({
+      id: m.orgId,
+      name: m.org.name,
+      slug: m.org.slug,
+      role: m.orgRole,
+    }));
+
+    return {
+      user: { id: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, status: user.status },
+      activeOrg,
+      availableOrgs,
+    };
+  }
 }
