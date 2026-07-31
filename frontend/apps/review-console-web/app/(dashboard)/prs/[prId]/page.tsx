@@ -2,7 +2,7 @@
 import React from 'react';
 import { usePRDetail, useSession, useOrgContext } from '@workspace/hooks';
 import { Button, Badge, Modal, DiffViewer, RoleGate, Textarea, cn } from '@workspace/ui-kit';
-import { prs } from '@workspace/api-client';
+import { prs, orgs } from '@workspace/api-client';
 import { ArrowLeft, Send, CheckCircle2, XCircle, ShieldAlert, AlertTriangle, FileDiff, User, GitMerge, Clock } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 
@@ -37,8 +37,15 @@ export default function PRDetailPage() {
   const [rejectReason, setRejectReason] = React.useState('');
   const [isReviewing, setIsReviewing] = React.useState(false);
   const [toast, setToast] = React.useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [members, setMembers] = React.useState<any[]>([]);
 
   const showToast = (message: string, type: 'error' | 'success') => setToast({ message, type });
+
+  React.useEffect(() => {
+    if (orgId) {
+      orgs.listMembers(orgId).then(setMembers).catch(() => {});
+    }
+  }, [orgId]);
 
   const fetchComments = React.useCallback(async () => {
     if (!orgId || !prId) return;
@@ -58,6 +65,19 @@ export default function PRDetailPage() {
       showToast('Pull Request approved!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Review failed', 'error');
+    } finally {
+      setIsReviewing(false);
+    }
+  };
+
+  const handleSubmitPR = async () => {
+    setIsReviewing(true);
+    try {
+      await prs.submit(orgId, prId);
+      refetch();
+      showToast('Pull Request submitted for review', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Submission failed', 'error');
     } finally {
       setIsReviewing(false);
     }
@@ -150,40 +170,45 @@ export default function PRDetailPage() {
         </button>
 
         {!isGuestView && (
-          <RoleGate permission="pr:review">
-            {isAuthor ? (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/25 text-xs font-semibold">
-                <ShieldAlert className="w-3.5 h-3.5" />
-                Author cannot approve own PR
-              </span>
-            ) : pr.status !== 'MERGED' ? (
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setIsRejectModalOpen(true)}
-                  disabled={isReviewing}
-                >
-                  <XCircle className="w-4 h-4 text-red-500" />
-                  Request Changes
+          <div className="flex items-center gap-3">
+            {pr.status === 'DRAFT' && (
+              <RoleGate permission="pr:create">
+                <Button size="sm" variant="primary" onClick={handleSubmitPR} isLoading={isReviewing}>
+                  <Send className="w-4 h-4 mr-1.5" />
+                  Submit for Review
                 </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleApprove}
-                  isLoading={isReviewing}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Approve
-                </Button>
-              </div>
-            ) : (
+              </RoleGate>
+            )}
+
+            {pr.status === 'MERGED' && (
               <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/25 text-xs font-semibold">
                 <GitMerge className="w-3.5 h-3.5" />
                 Merged
               </span>
             )}
-          </RoleGate>
+
+            {(pr.status === 'IN_REVIEW' || pr.status === 'APPROVED' || pr.status === 'REJECTED') && (
+              <RoleGate permission="pr:review">
+                {isAuthor ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/25 text-xs font-semibold">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    Author cannot approve own PR
+                  </span>
+                ) : (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={() => setIsRejectModalOpen(true)} disabled={isReviewing}>
+                      <XCircle className="w-4 h-4 text-red-500 mr-1.5" />
+                      Request Changes
+                    </Button>
+                    <Button size="sm" variant="primary" onClick={handleApprove} isLoading={isReviewing}>
+                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                      Approve
+                    </Button>
+                  </>
+                )}
+              </RoleGate>
+            )}
+          </div>
         )}
       </div>
 
@@ -309,7 +334,27 @@ export default function PRDetailPage() {
           </div>
 
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Reviewers</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Reviewers</h3>
+              {!isGuestView && (pr.status === 'DRAFT' || pr.status === 'IN_REVIEW' || pr.status === 'REJECTED' || pr.status === 'APPROVED') && (
+                <select 
+                  className="text-[10px] bg-[var(--bg)] border border-[var(--border)] rounded px-1.5 py-1 text-[var(--text-secondary)] font-medium outline-none focus:border-[var(--accent)]"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                       prs.assignReviewer(orgId, prId, e.target.value)
+                          .then(() => { refetch(); e.target.value = ''; showToast('Reviewer assigned', 'success'); })
+                          .catch(err => { showToast(err.message || 'Failed to assign', 'error'); e.target.value = ''; });
+                    }
+                  }}
+                  value=""
+                >
+                  <option value="" disabled>+ Assign</option>
+                  {members.filter(m => m.orgRole === 'ORG_ADMIN' || m.orgRole === 'REVIEWER_APPROVER').map(m => (
+                    <option key={m.userId} value={m.userId}>{m.user?.fullName || m.userId}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             {!pr.reviewers || pr.reviewers.length === 0 ? (
               <p className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>No reviewers assigned.</p>
             ) : (

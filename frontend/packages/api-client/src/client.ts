@@ -191,6 +191,10 @@ export const prs = {
   get: (orgId: string, prId: string) => request<PullRequest>(`/prs/${prId}`, { orgId }),
   create: (orgId: string, data: Record<string, any>) =>
     request<PullRequest>('/prs', { method: 'POST', orgId, body: JSON.stringify(data) }),
+  submit: (orgId: string, prId: string) =>
+    request(`/prs/${prId}/submit`, { method: 'POST', orgId }),
+  assignReviewer: (orgId: string, prId: string, reviewerId: string) =>
+    request(`/prs/${prId}/reviewers`, { method: 'POST', orgId, body: JSON.stringify({ reviewerId }) }),
   review: (orgId: string, prId: string, decision: 'APPROVED' | 'CHANGES_REQUESTED', comment?: string) =>
     request(`/prs/${prId}/review`, { method: 'POST', orgId, body: JSON.stringify({ decision, comment }) }),
   merge: (orgId: string, prId: string) => request(`/prs/${prId}/merge`, { method: 'POST', orgId }),
