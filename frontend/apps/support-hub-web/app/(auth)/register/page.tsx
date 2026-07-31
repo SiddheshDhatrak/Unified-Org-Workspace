@@ -12,7 +12,11 @@ const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   email: z.string().email('Please enter a valid work email'),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
-  organizationName: z.string().min(2, 'Organization name is required'),
+  organizationName: z.string().optional(),
+  invitationToken: z.string().optional(),
+}).refine(data => data.organizationName || data.invitationToken, {
+  message: 'Either Organization Name or Invitation Token is required',
+  path: ['organizationName'],
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -23,6 +27,7 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [step, setStep] = React.useState(1);
+  const [joinMode, setJoinMode] = React.useState<'create' | 'join'>('create');
 
   const { register, watch, handleSubmit, trigger, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -56,7 +61,8 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
         fullName: data.fullName,
-        organizationName: data.organizationName,
+        organizationName: joinMode === 'create' ? data.organizationName : undefined,
+        invitationToken: joinMode === 'join' ? data.invitationToken : undefined,
       });
       router.replace('/tickets');
     } catch (err: any) {
@@ -121,13 +127,36 @@ export default function RegisterPage() {
           </div>
 
           <div className={cn("transition-all duration-300 ease-in-out space-y-3.5", step === 2 ? "translate-x-0 opacity-100 relative" : "translate-x-full opacity-0 absolute top-0 w-full pointer-events-none")}>
-            <Input label="Organization Name" placeholder="Acme Corp" {...register('organizationName')} error={errors.organizationName?.message} />
+            
+            <div className="flex bg-zinc-800 rounded-lg p-1 border border-white/10 mb-4">
+              <button
+                type="button"
+                className={cn('flex-1 text-xs font-semibold py-1.5 rounded-md transition-all', joinMode === 'create' ? 'bg-zinc-700 text-white' : 'text-zinc-400')}
+                onClick={() => setJoinMode('create')}
+              >
+                Create New
+              </button>
+              <button
+                type="button"
+                className={cn('flex-1 text-xs font-semibold py-1.5 rounded-md transition-all', joinMode === 'join' ? 'bg-zinc-700 text-white' : 'text-zinc-400')}
+                onClick={() => setJoinMode('join')}
+              >
+                Join Existing
+              </button>
+            </div>
+
+            {joinMode === 'create' ? (
+              <Input label="Organization Name" placeholder="Acme Corp" {...register('organizationName')} error={errors.organizationName?.message} />
+            ) : (
+              <Input label="Invitation Token" placeholder="Paste your token here" {...register('invitationToken')} error={errors.invitationToken?.message} />
+            )}
+
             <div className="flex gap-2 mt-4 pt-2">
               <Button type="button" onClick={() => setStep(1)} variant="secondary" size="lg" className="flex-1">
                 Back
               </Button>
               <Button type="submit" variant="primary" size="lg" className="flex-[2] group" isLoading={isSubmitting}>
-                <span>Create Account</span>
+                <span>{joinMode === 'create' ? 'Create Account' : 'Join Workspace'}</span>
                 <CheckCircle2 className="w-4 h-4 ml-1" />
               </Button>
             </div>
