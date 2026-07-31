@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
 
           <a
-            href="http://localhost:3001/prs"
+            href={process.env.NEXT_PUBLIC_REVIEW_CONSOLE_URL || "http://localhost:3001/prs"}
             target="_blank"
             rel="noreferrer"
             className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors"
