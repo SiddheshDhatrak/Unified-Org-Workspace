@@ -75,7 +75,7 @@ export class OrganizationController {
     try {
       const dto = validateInput(inviteUserSchema, req.body);
       const invite = await this.service.inviteMember(req.params.id, dto, req.user!.id, req.ip, req.session?.id);
-      res.status(201).json({ data: invite });
+      res.status(201).json({ data: invite, message: 'Invitation email sent successfully' });
     } catch (error) {
       next(error);
     }

@@ -1,5 +1,5 @@
 import { prisma, ExtendedPrismaClient } from '../../config/db';
-import { Organization, Membership, Invitation } from '@prisma/client';
+import { Organization, Membership, Invitation, User } from '@prisma/client';
 
 export class OrganizationRepository {
   private db: ExtendedPrismaClient;
@@ -67,5 +67,9 @@ export class OrganizationRepository {
     return this.db.membership.delete({
       where: { id: membershipId },
     });
+  }
+
+  async findUserById(userId: string): Promise<User | null> {
+    return this.db.user.findUnique({ where: { id: userId } });
   }
 }

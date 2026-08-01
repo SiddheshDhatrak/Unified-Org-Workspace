@@ -36,9 +36,10 @@ const FEATURES = [
 function LoginContent() {
   const searchParams = useSearchParams();
   const from = searchParams?.get('from') || '/tickets';
+  const inviteToken = searchParams?.get('token');
   
-  const [mode, setMode] = React.useState<'login' | 'register'>('login');
-  const [joinMode, setJoinMode] = React.useState<'create' | 'join'>('create');
+  const [mode, setMode] = React.useState<'login' | 'register'>(inviteToken ? 'register' : 'login');
+  const [joinMode, setJoinMode] = React.useState<'create' | 'join'>(inviteToken ? 'join' : 'create');
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -49,6 +50,12 @@ function LoginContent() {
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   });
+
+  React.useEffect(() => {
+    if (inviteToken) {
+      registerForm.setValue('invitationToken', inviteToken);
+    }
+  }, [inviteToken, registerForm]);
 
   const passwordValue = registerForm.watch('password') || '';
   const strengthScore = React.useMemo(() => {
@@ -205,7 +212,9 @@ function LoginContent() {
           )}>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create Workspace</h1>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">Register your organization to get started.</p>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
+                {inviteToken ? "You've been invited! Create your account to join." : "Register your organization to get started."}
+              </p>
             </div>
 
             {errorMessage && mode === 'register' && (
@@ -239,7 +248,7 @@ function LoginContent() {
               {joinMode === 'create' ? (
                 <Input label="Organization Name" placeholder="Acme Corp" {...registerForm.register('organizationName')} error={registerForm.formState.errors.organizationName?.message} />
               ) : (
-                <Input label="Invitation Token" placeholder="Paste your token here" {...registerForm.register('invitationToken')} error={registerForm.formState.errors.invitationToken?.message} />
+                <Input label="Invitation Token" placeholder="Paste your token here" {...registerForm.register('invitationToken')} error={registerForm.formState.errors.invitationToken?.message} readOnly={!!inviteToken} className={inviteToken ? "opacity-50 cursor-not-allowed" : ""} />
               )}
               
               <div className="space-y-1">

@@ -5,6 +5,7 @@ import { NotFoundError, QuotaExceededError, ValidationError } from '../../shared
 import { AuditFacade } from '../audit/audit.facade';
 import { AUDIT_ACTIONS } from '../../shared/constants/audit.constants';
 import { OrgStatus } from '@prisma/client';
+import { sendInvitationEmail } from '../../shared/email/email.service';
 
 const PLAN_QUOTAS: Record<string, { maxMembers: number }> = {
   free: { maxMembers: 5 },
@@ -123,6 +124,19 @@ export class OrganizationService {
       invitedBy: actorId,
       expiresAt,
     });
+
+    const inviter = await this.repo.findUserById(actorId);
+
+    // Fire-and-forget email sending
+    sendInvitationEmail({
+      recipientEmail: dto.email,
+      token,
+      orgName: org.name,
+      inviterName: inviter?.fullName || 'A team member',
+      role: dto.role || 'SUPPORT_AGENT',
+      expiresInDays: 7,
+    }).catch(err => console.error('Failed to send invitation email', err));
+
 
     await AuditFacade.record({
       orgId,

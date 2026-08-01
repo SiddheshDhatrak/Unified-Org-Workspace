@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { auth, ApiError } from '@workspace/api-client';
 import { Button, Input, cn } from '@workspace/ui-kit';
 import { ShieldCheck, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
@@ -21,17 +21,25 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams?.get('token');
+
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [step, setStep] = React.useState(1);
-  const [joinMode, setJoinMode] = React.useState<'create' | 'join'>('create');
+  const [joinMode, setJoinMode] = React.useState<'create' | 'join'>(inviteToken ? 'join' : 'create');
 
-  const { register, watch, handleSubmit, trigger, formState: { errors } } = useForm<RegisterFormValues>({
+  const { register, watch, handleSubmit, trigger, setValue, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   });
+
+  React.useEffect(() => {
+    if (inviteToken) {
+      setValue('invitationToken', inviteToken);
+    }
+  }, [inviteToken, setValue]);
 
   const passwordValue = watch('password') || '';
 
@@ -85,7 +93,9 @@ export default function RegisterPage() {
             </div>
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">Create Workspace</h1>
-          <p className="text-xs text-zinc-400">Support Hub & Review Console Unified Access (§4.1)</p>
+          <p className="text-xs text-zinc-400">
+            {inviteToken ? "You've been invited! Create your account to join." : "Support Hub & Review Console Unified Access (§4.1)"}
+          </p>
         </div>
 
         {errorMessage && (
@@ -148,7 +158,7 @@ export default function RegisterPage() {
             {joinMode === 'create' ? (
               <Input label="Organization Name" placeholder="Acme Corp" {...register('organizationName')} error={errors.organizationName?.message} />
             ) : (
-              <Input label="Invitation Token" placeholder="Paste your token here" {...register('invitationToken')} error={errors.invitationToken?.message} />
+              <Input label="Invitation Token" placeholder="Paste your token here" {...register('invitationToken')} error={errors.invitationToken?.message} readOnly={!!inviteToken} className={inviteToken ? "opacity-50 cursor-not-allowed" : ""} />
             )}
 
             <div className="flex gap-2 mt-4 pt-2">
@@ -174,5 +184,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-zinc-400">Loading...</div>}>
+      <RegisterContent />
+    </React.Suspense>
   );
 }
