@@ -25,16 +25,16 @@ export default function MembersPage() {
     if (!inviteEmail) return;
     try {
       const res = await orgs.inviteMember(orgId, inviteEmail, inviteRole);
-      // If the backend returns the invitation object with the token in res
+      // We still get the token back in the response for a manual fallback
       if (res && (res as any).token) {
         setInviteToken((res as any).token);
       } else {
-        alert('Invitation sent! (Email service not configured in MVP, token generated internally)');
+        alert('Invitation sent successfully!');
       }
       setInviteEmail('');
       orgs.listMembers(orgId).then(setMembers).catch(() => {});
     } catch (err: any) {
-      alert(err.message || 'Invitation sent!');
+      alert(err.message || 'Failed to send invitation');
     }
   };
 
@@ -98,11 +98,12 @@ export default function MembersPage() {
         <div className="space-y-4 mt-2">
           {inviteToken ? (
             <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <p className="text-sm font-semibold mb-2">Invitation created successfully!</p>
-              <p className="text-xs mb-2">Since the email service is not configured in this MVP, please copy the invitation token below and share it with the user. They can use it during registration.</p>
+              <p className="text-sm font-semibold mb-2">Invitation sent successfully!</p>
+              <p className="text-xs mb-4 text-emerald-700 dark:text-emerald-300">An email has been automatically sent to the user with their registration link.</p>
+              <p className="text-xs mb-2 text-zinc-500">If they don't receive it, you can manually share this link with them:</p>
               <div className="flex gap-2">
-                <Input value={inviteToken} readOnly />
-                <Button variant="primary" onClick={() => { navigator.clipboard.writeText(inviteToken); alert('Copied!'); }}>Copy</Button>
+                <Input value={`${typeof window !== 'undefined' ? window.location.origin : ''}/register?token=${inviteToken}`} readOnly />
+                <Button variant="primary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/register?token=${inviteToken}`); alert('Copied!'); }}>Copy Link</Button>
               </div>
               <Button className="mt-4 w-full" variant="ghost" onClick={() => { setIsInviteOpen(false); setInviteToken(null); }}>Close</Button>
             </div>
