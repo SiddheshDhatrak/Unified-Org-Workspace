@@ -112,6 +112,14 @@ export class OrganizationService {
       throw new QuotaExceededError(`Organization plan tier (${org.planTier}) maximum members quota (${quota.maxMembers}) exceeded (§5.8)`);
     }
 
+    const existingUser = await this.repo.findUserByEmail(dto.email);
+    if (existingUser) {
+      const membership = await this.repo.findMembershipById(orgId, existingUser.id);
+      if (membership) {
+        throw new ValidationError('This user is already a member of the organization.');
+      }
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7d (§5.4)
 

@@ -72,4 +72,8 @@ export class OrganizationRepository {
   async findUserById(userId: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { id: userId } });
   }
+
+  async findUserByEmail(email: string): Promise<User | null> {
+    return this.db.user.findUnique({ where: { email } });
+  }
 }
