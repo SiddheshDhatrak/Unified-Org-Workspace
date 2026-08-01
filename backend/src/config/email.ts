@@ -1,26 +1,21 @@
-import { Resend } from 'resend';
 import { env } from './env';
 import { logger } from '../shared/logger';
 
 /**
- * Email Transporter
+ * Email Transporter — Brevo (Sendinblue) HTTP API
  * 
- * Uses the Resend HTTP API (port 443) instead of SMTP (port 465/587).
- * Railway and many cloud providers block outbound SMTP ports,
- * but HTTPS is always available.
+ * Uses Brevo's transactional email API over HTTPS (port 443).
+ * Railway blocks outbound SMTP ports (465/587), so we use the HTTP API instead.
  * 
- * If RESEND_API_KEY is configured, uses real email delivery.
+ * If SMTP_PASS (Brevo API key) is configured, uses real email delivery.
  * Otherwise, logs email content to console (dev convenience).
  */
 
-const apiKey = env.SMTP_PASS; // Reuse the same env var — the value is the Resend API key
-const isConfigured = Boolean(apiKey && apiKey !== 're_YOUR_API_KEY_HERE');
-
-let resend: Resend | null = null;
+const apiKey = env.SMTP_PASS;
+const isConfigured = Boolean(apiKey && !apiKey.includes('YOUR_API_KEY_HERE'));
 
 if (isConfigured) {
-  resend = new Resend(apiKey);
-  logger.info('✅ Resend email client initialized (HTTP API)');
+  logger.info('✅ Brevo email client initialized (HTTP API)');
 } else {
   logger.info('📧 Email not configured — emails will be logged to console');
 }
@@ -34,21 +29,31 @@ export interface SendMailOptions {
 export async function sendMail(options: SendMailOptions): Promise<void> {
   const { to, subject, html } = options;
 
-  if (resend) {
+  if (isConfigured) {
     try {
-      const { data, error } = await resend.emails.send({
-        from: env.SMTP_FROM,
-        to: [to],
-        subject,
-        html,
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': apiKey!,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { email: env.SMTP_FROM, name: 'Unified Workspace' },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
       });
 
-      if (error) {
-        logger.error({ error, to, subject }, '❌ Resend API returned an error');
-        throw new Error(error.message);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        logger.error({ status: response.status, errorBody, to, subject }, '❌ Brevo API returned an error');
+        throw new Error(`Brevo API error (${response.status}): ${errorBody}`);
       }
 
-      logger.info({ emailId: data?.id, to }, '📧 Email sent successfully via Resend');
+      const data = await response.json() as any;
+      logger.info({ messageId: data.messageId, to }, '📧 Email sent successfully via Brevo');
     } catch (err: any) {
       logger.error({ err, to, subject }, '❌ Failed to send email');
       throw err;
