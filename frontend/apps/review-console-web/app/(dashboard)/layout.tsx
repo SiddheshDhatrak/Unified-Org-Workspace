@@ -14,7 +14,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { auth } from '@workspace/api-client';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +22,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isGuestView, orgRole } = useOrgContext();
   const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isNewSession = !sessionStorage.getItem('tab_session_active');
+      if (isNewSession) {
+        sessionStorage.setItem('tab_session_active', 'true');
+        if (pathname !== '/prs') {
+          router.replace('/prs');
+        }
+      }
+    }
+  }, [pathname, router]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [showLogoutAllConfirm, setShowLogoutAllConfirm] = React.useState(false);

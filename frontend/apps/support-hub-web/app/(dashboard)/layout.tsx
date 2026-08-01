@@ -12,6 +12,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isGuestView, orgRole } = useOrgContext();
   const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isNewSession = !sessionStorage.getItem('tab_session_active');
+      if (isNewSession) {
+        sessionStorage.setItem('tab_session_active', 'true');
+        if (pathname !== '/tickets') {
+          router.replace('/tickets');
+        }
+      }
+    }
+  }, [pathname, router]);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
