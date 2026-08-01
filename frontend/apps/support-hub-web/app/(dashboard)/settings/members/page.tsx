@@ -3,7 +3,7 @@ import React from 'react';
 import { useOrgContext } from '@workspace/hooks';
 import { orgs } from '@workspace/api-client';
 import { Button, Input, Select, Table, Modal, Badge } from '@workspace/ui-kit';
-import { Users, UserPlus } from 'lucide-react';
+import { Users, UserPlus, Copy, Check } from 'lucide-react';
 
 export default function MembersPage() {
   const { orgId, orgRole, isGuestView } = useOrgContext();
@@ -13,6 +13,14 @@ export default function MembersPage() {
   const [inviteEmail, setInviteEmail] = React.useState('');
   const [inviteRole, setInviteRole] = React.useState('SUPPORT_AGENT');
   const [inviteToken, setInviteToken] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopyLink = () => {
+    if (!inviteToken) return;
+    navigator.clipboard.writeText(`${window.location.origin}/register?token=${inviteToken}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   React.useEffect(() => {
     if (orgId) {
@@ -101,9 +109,17 @@ export default function MembersPage() {
               <p className="text-sm font-semibold mb-2">Invitation sent successfully!</p>
               <p className="text-xs mb-4 text-emerald-700 dark:text-emerald-300">An email has been automatically sent to the user with their registration link.</p>
               <p className="text-xs mb-2 text-zinc-500">If they don't receive it, you can manually share this link with them:</p>
-              <div className="flex gap-2">
-                <Input value={`${typeof window !== 'undefined' ? window.location.origin : ''}/register?token=${inviteToken}`} readOnly />
-                <Button variant="primary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/register?token=${inviteToken}`); alert('Copied!'); }}>Copy Link</Button>
+              <div className="flex items-center gap-2 mt-2 p-1 bg-white/5 dark:bg-black/20 rounded-lg border border-white/10">
+                <input 
+                  type="text" 
+                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/register?token=${inviteToken}`} 
+                  readOnly 
+                  className="flex-1 bg-transparent border-none text-xs text-zinc-600 dark:text-zinc-300 px-3 py-2 outline-none w-full"
+                />
+                <Button variant="primary" onClick={handleCopyLink} className="shrink-0 h-8 text-xs flex items-center gap-1.5 px-3">
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </Button>
               </div>
               <Button className="mt-4 w-full" variant="ghost" onClick={() => { setIsInviteOpen(false); setInviteToken(null); }}>Close</Button>
             </div>
