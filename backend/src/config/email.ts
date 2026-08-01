@@ -1,34 +1,28 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { env } from './env';
 import { logger } from '../shared/logger';
 
 /**
- * SMTP Email Transporter
+ * Email Transporter
  * 
- * If SMTP_HOST is configured, uses real SMTP delivery.
- * Otherwise, logs email content to console (dev/eval convenience).
+ * Uses the Resend HTTP API (port 443) instead of SMTP (port 465/587).
+ * Railway and many cloud providers block outbound SMTP ports,
+ * but HTTPS is always available.
+ * 
+ * If RESEND_API_KEY is configured, uses real email delivery.
+ * Otherwise, logs email content to console (dev convenience).
  */
 
-const isSmtpConfigured = Boolean(env.SMTP_HOST);
+const apiKey = env.SMTP_PASS; // Reuse the same env var — the value is the Resend API key
+const isConfigured = Boolean(apiKey && apiKey !== 're_YOUR_API_KEY_HERE');
 
-let transporter: nodemailer.Transporter | null = null;
+let resend: Resend | null = null;
 
-if (isSmtpConfigured) {
-  transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
-    auth: (env.SMTP_USER && env.SMTP_PASS)
-      ? { user: env.SMTP_USER, pass: env.SMTP_PASS }
-      : undefined,
-  });
-
-  // Verify connection on boot
-  transporter.verify()
-    .then(() => logger.info('✅ SMTP transporter verified and ready'))
-    .catch((err) => logger.warn({ err }, '⚠️ SMTP transporter verification failed — emails may not be delivered'));
+if (isConfigured) {
+  resend = new Resend(apiKey);
+  logger.info('✅ Resend email client initialized (HTTP API)');
 } else {
-  logger.info('📧 SMTP not configured — emails will be logged to console');
+  logger.info('📧 Email not configured — emails will be logged to console');
 }
 
 export interface SendMailOptions {
@@ -40,15 +34,21 @@ export interface SendMailOptions {
 export async function sendMail(options: SendMailOptions): Promise<void> {
   const { to, subject, html } = options;
 
-  if (transporter) {
+  if (resend) {
     try {
-      const info = await transporter.sendMail({
+      const { data, error } = await resend.emails.send({
         from: env.SMTP_FROM,
-        to,
+        to: [to],
         subject,
         html,
       });
-      logger.info({ messageId: info.messageId, to }, '📧 Email sent successfully');
+
+      if (error) {
+        logger.error({ error, to, subject }, '❌ Resend API returned an error');
+        throw new Error(error.message);
+      }
+
+      logger.info({ emailId: data?.id, to }, '📧 Email sent successfully via Resend');
     } catch (err: any) {
       logger.error({ err, to, subject }, '❌ Failed to send email');
       throw err;
@@ -57,7 +57,7 @@ export async function sendMail(options: SendMailOptions): Promise<void> {
     // Dev fallback: log to console
     logger.info(
       { to, subject },
-      `📧 [DEV EMAIL — SMTP not configured]\n` +
+      `📧 [DEV EMAIL — Not configured]\n` +
       `  To: ${to}\n` +
       `  Subject: ${subject}\n` +
       `  Body (HTML): ${html.substring(0, 200)}...`
