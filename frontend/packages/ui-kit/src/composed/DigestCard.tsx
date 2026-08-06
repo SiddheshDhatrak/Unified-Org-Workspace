@@ -21,8 +21,9 @@ export const DigestCard: React.FC = () => {
   }
 
   const rawContent = digest?.content;
-  const content = (typeof rawContent === 'object' && rawContent !== null && 'text' in rawContent)
-    ? rawContent.text
+  const isObject = typeof rawContent === 'object' && rawContent !== null;
+  const content = (isObject && 'text' in (rawContent as any))
+    ? (rawContent as any).text
     : (rawContent || 'Your first AI progress digest will arrive on your organization schedule.');
   const timeStr = digest?.generatedAt
     ? new Date(digest.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
