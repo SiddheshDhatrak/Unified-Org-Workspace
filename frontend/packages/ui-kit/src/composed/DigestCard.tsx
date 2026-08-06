@@ -20,7 +20,10 @@ export const DigestCard: React.FC = () => {
     );
   }
 
-  const content = digest?.content || 'Your first AI progress digest will arrive on your organization schedule.';
+  const rawContent = digest?.content;
+  const content = (typeof rawContent === 'object' && rawContent !== null && 'text' in rawContent)
+    ? rawContent.text
+    : (rawContent || 'Your first AI progress digest will arrive on your organization schedule.');
   const timeStr = digest?.generatedAt
     ? new Date(digest.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : 'Just now';
